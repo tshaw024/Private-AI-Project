@@ -1,555 +1,939 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>LLMStack Demo — Interactive Control Plane (V5 — offline charts)</title>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-  :root{ --bg:#0a0f1e; --panel:#0f1530; --g1:#5b8cff; --g2:#7b5bff; --g3:#34d2ff; --g4:#8c5bff; }
-  html { scroll-behavior: smooth; } body{ background: var(--bg); color:#fff; } *{ transition: all .18s ease; }
-  .aurora{ position: fixed; inset:-20% -20% auto -20%; height:60vh; z-index:-1;
-    background: radial-gradient(35% 55% at 10% 20%, rgba(91,140,255,.20),transparent 60%),
-                radial-gradient(30% 45% at 80% 10%, rgba(123,91,255,.18),transparent 60%),
-                radial-gradient(40% 60% at 50% 80%, rgba(52,210,255,.16),transparent 60%);
-    filter: blur(40px); animation: drift 18s ease-in-out infinite alternate; opacity:.8;}
-  @keyframes drift{from{transform:translateY(-6%) translateX(0%);}to{transform:translateY(6%) translateX(2%);}}
-  .glass{ background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04)); backdrop-filter: blur(14px); border:1px solid rgba(255,255,255,.12); border-radius: 14px; box-shadow: 0 12px 28px rgba(0,0,0,.35); }
-  .glass:hover{ transform: translateY(-2px); box-shadow: 0 16px 34px rgba(91,140,255,.28); border-color: rgba(255,255,255,.18); }
-  .ringed{ position: relative; border-radius: 16px; }
-  .ringed:before{ content:""; position:absolute; inset:-1px; padding:1px; border-radius:16px; background: linear-gradient(90deg,var(--g1),var(--g2),var(--g3)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events:none;}
-  .btn{ position:relative; overflow:hidden; border-radius:12px; cursor:pointer; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06); }
-  .btn:hover{ border-color: rgba(255,255,255,.28); background:rgba(255,255,255,.10); transform: translateY(-1px); }
-  .grad{ background-image: linear-gradient(90deg, var(--g1), var(--g2), var(--g3), var(--g4)); background-size: 300% 100%; border-color: transparent; }
-  .grad:hover{ background-position: 100% 0; box-shadow: 0 12px 28px rgba(91,140,255,.45); }
-  .hover-row:hover{ background: rgba(255,255,255,.06); }
-  .drawer{ transition: transform .28s ease; } .drawer.closed{ transform: translateY(105%); }
-  .topbar{ backdrop-filter: blur(12px); background: linear-gradient(180deg, rgba(8,12,26,.65), rgba(8,12,26,.35)); border-bottom: 1px solid rgba(255,255,255,.12); }
-  .kbd{border:1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); border-radius:6px; padding:0 6px;}
-  canvas{ width:100%; height:160px; }
-</style>
-</head>
-<body class="antialiased">
-  <div class="aurora"></div>
 
-  <header class="fixed top-0 left-0 right-0 z-40 topbar">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-xl grad shadow-lg"></div>
-        <div class="font-extrabold tracking-tight">LLMStack</div>
-        <div class="hidden md:flex items-center gap-2 text-xs text-white/70 ml-3">
-          <span>Self‑Hosted LLM Control Plane</span><span>•</span><span>Cut GPU spend by up to 40%</span>
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        <div class="hidden lg:flex items-center gap-2 text-xs text-white/70">
-          <span class="kbd">⌘</span><span>+</span><span class="kbd">K</span><span> Command Palette</span>
-        </div>
-        <a href="#/deploy" class="btn grad px-3 py-2 text-sm font-semibold shadow-lg">Deploy Model</a>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM-Stack — Private LLM Control Plane & Cost Optimization</title>
+  <meta name="description"
+    content="Run and optimize self-hosted LLMs behind the firewall. Deploy, monitor, and cut GPU costs with LLM-Stack." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+
+    :root {
+      --ink: #0b1020;
+      --card: #0f1530;
+      --muted: #a7b0c4;
+      --grad1: #5b8cff;
+      --grad2: #7b5bff;
+      --grad3: #34d2ff;
+    }
+
+    .aurora {
+      position: relative;
+      isolation: isolate;
+      background: radial-gradient(900px 500px at 50% -10%, rgba(91, 140, 255, .25), transparent),
+        radial-gradient(700px 400px at 10% 10%, rgba(52, 210, 255, .18), transparent),
+        linear-gradient(180deg, #0b1020 0%, #0c1326 70%, #0b1020 100%);
+    }
+
+    .aurora:before,
+    .aurora:after {
+      content: "";
+      position: absolute;
+      inset: auto;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      filter: blur(55px);
+      opacity: .35;
+      z-index: -1;
+    }
+
+    .aurora:before {
+      top: 1rem;
+      left: 6%;
+      background: radial-gradient(circle, var(--grad2), transparent 60%);
+    }
+
+    .aurora:after {
+      top: -2rem;
+      right: 8%;
+      background: radial-gradient(circle, var(--grad3), transparent 60%);
+    }
+
+    .glass {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .04));
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, .12);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+    }
+
+    .gbtn {
+      background-image: linear-gradient(90deg, var(--grad1), var(--grad2), var(--grad3));
+      background-size: 200% 100%;
+      transition: background-position .5s ease, transform .15s ease, box-shadow .2s ease;
+      box-shadow: 0 8px 22px rgba(91, 140, 255, .35);
+    }
+
+    .gbtn:hover {
+      background-position: 100% 0;
+      transform: translateY(-1px);
+      box-shadow: 0 12px 26px rgba(91, 140, 255, .45);
+    }
+
+    .outline-btn {
+      border: 1px solid rgba(255, 255, 255, .18);
+      background: rgba(255, 255, 255, .06);
+      transition: .2s;
+    }
+
+    .outline-btn:hover {
+      border-color: rgba(255, 255, 255, .28);
+      background: rgba(255, 255, 255, .1);
+    }
+
+    .grad-ring {
+      position: relative;
+    }
+
+    .grad-ring:before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border-radius: .75rem;
+      padding: 1px;
+      background: linear-gradient(90deg, var(--grad1), var(--grad2), var(--grad3));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      border-radius: .75rem;
+    }
+
+    .sep {
+      border-top: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(90deg, rgba(91, 140, 255, .22), rgba(123, 91, 255, .22));
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .table th,
+    .table td {
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+
+    pre code {
+      white-space: pre;
+    }
+  </style>
+  <style>
+    /* --- Enhanced bottom CTA --- */
+    .cta-card {
+      background: linear-gradient(135deg, rgba(91, 140, 255, 0.15), rgba(123, 91, 255, 0.15));
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      padding: 32px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .cta-text h2 {
+      font-size: 2.25rem;
+      margin: 0 0 10px;
+      font-weight: 800;
+      color: #fff
+    }
+
+    .cta-text .subtitle {
+      font-size: 1.125rem;
+      color: rgba(232, 236, 255, 0.75)
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 14px
+    }
+
+    .btn.pulse {
+      position: relative;
+      animation: pulseGlow 2s infinite
+    }
+
+    @keyframes pulseGlow {
+      0% {
+        box-shadow: 0 0 0 0 rgba(91, 140, 255, 0.7)
+      }
+
+      70% {
+        box-shadow: 0 0 0 15px rgba(91, 140, 255, 0)
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(91, 140, 255, 0)
+      }
+    }
+
+    @media (max-width:768px) {
+      .cta-buttons {
+        flex-direction: column;
+        width: 100%
+      }
+
+      .cta-buttons .btn {
+        width: 100%
+      }
+
+      .cta-text h2 {
+        font-size: 1.6rem
+      }
+    }
+  </style>
+  <style>
+    /* ===== Scoped CTA Styles (no collisions) ===== */
+    #get-started .llmstack-cta {
+      background: radial-gradient(1200px 600px at 10% 20%, rgba(91, 140, 255, .20), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(123, 91, 255, .18), transparent 60%),
+        linear-gradient(135deg, rgba(35, 42, 75, .75), rgba(22, 27, 56, .75));
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 20px;
+      padding: 32px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, .45);
+      backdrop-filter: blur(8px);
+    }
+
+    #get-started .llmstack-cta__title {
+      margin: 0 0 8px 0;
+      font-size: 2.25rem;
+      line-height: 1.15;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    #get-started .llmstack-cta__subtitle {
+      margin: 0;
+      font-size: 1.125rem;
+      color: rgba(232, 236, 255, .8);
+    }
+
+    #get-started .llmstack-cta__buttons {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    #get-started .llmstack-cta__btn {
+      min-width: 180px;
+      text-align: center
+    }
+
+    #get-started .llmstack-cta__btn.btn.grad {
+      background-image: linear-gradient(90deg, #5b8cff, #7b5bff, #34d2ff, #8c5bff);
+      background-size: 300% 100%;
+      border-color: transparent;
+      box-shadow: 0 10px 26px rgba(91, 140, 255, .35);
+      transition: background-position .25s ease, transform .15s ease, box-shadow .15s ease;
+    }
+
+    #get-started .llmstack-cta__btn.btn.grad:hover {
+      background-position: 100% 0;
+      transform: translateY(-1px);
+      box-shadow: 0 16px 36px rgba(91, 140, 255, .45)
+    }
+
+    #get-started .llmstack-cta__btn.btn.glass {
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .22)
+    }
+
+    #get-started .llmstack-cta__btn.btn.glass:hover {
+      background: rgba(255, 255, 255, .12);
+      transform: translateY(-1px)
+    }
+
+    @media (max-width: 960px) {
+      #get-started .llmstack-cta {
+        grid-template-columns: 1fr;
+        text-align: left
+      }
+
+      #get-started .llmstack-cta__buttons {
+        justify-content: flex-start;
+        width: 100%
+      }
+
+      #get-started .llmstack-cta__btn {
+        width: 100%
+      }
+
+      #get-started .llmstack-cta__title {
+        font-size: 1.6rem
+      }
+    }
+  </style>
+  <style>
+    /* Product image hover effect */
+    .product-mockup {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .product-mockup:hover {
+      transform: scale(1.02);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.45);
+    }
+  </style>
+  <style>
+    /* Product image hover effect (hero) */
+    .product-mockup {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .product-mockup:hover {
+      transform: scale(1.02);
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.45);
+    }
+  </style>
+  <style>
+    /* Unified gradient button style */
+    .btn.grad.lg {
+      background-image: linear-gradient(90deg, #5b8cff, #7b5bff, #34d2ff, #8c5bff);
+      background-size: 300% 100%;
+      color: #fff;
+      padding: 12px 18px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      transition: background-position .25s ease, transform .15s ease, box-shadow .15s ease;
+      box-shadow: 0 10px 26px rgba(91, 140, 255, .35);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn.grad.lg:hover {
+      background-position: 100% 0;
+      transform: translateY(-2px);
+      box-shadow: 0 16px 36px rgba(91, 140, 255, .45)
+    }
+  </style>
+  <style>
+    /* Form input focus states */
+    .form input:focus,
+    .form textarea:focus {
+      border-color: rgba(91, 140, 255, .6) !important;
+      box-shadow: 0 0 0 3px rgba(91, 140, 255, .2);
+    }
+  </style>
+  <style>
+    /* --- Enhanced Footer --- */
+    .footer-pro {
+      margin-top: 40px;
+      border-top: 1px solid rgba(255, 255, 255, .12);
+      background: linear-gradient(180deg, rgba(15, 20, 40, .2), rgba(10, 15, 30, .35));
+      backdrop-filter: blur(6px);
+    }
+
+    .footer-pro .footer-inner {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 16px;
+      padding: 22px 20px;
+    }
+
+    .footer-pro .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    .footer-pro .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #5b8cff, #7b5bff, #34d2ff)
+    }
+
+    .footer-pro .brand-name {
+      font-weight: 800;
+      color: #fff
+    }
+
+    .footer-pro .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px
+    }
+
+    .footer-pro .links a {
+      color: rgba(232, 236, 255, .8);
+      font-weight: 500
+    }
+
+    .footer-pro .links a:hover {
+      color: #fff;
+      text-shadow: 0 0 18px rgba(123, 91, 255, .35)
+    }
+
+    .footer-pro .social {
+      display: flex;
+      gap: 10px
+    }
+
+    .footer-pro .social .social-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      background: rgba(255, 255, 255, .06);
+      color: #e8ecff;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    .footer-pro .social .social-btn:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, .28);
+      background: rgba(255, 255, 255, .12);
+      box-shadow: 0 8px 22px rgba(91, 140, 255, .35);
+    }
+
+    .footer-pro .legal {
+      border-top: 1px solid rgba(255, 255, 255, .1);
+      padding: 14px 0
+    }
+
+    @media (max-width: 960px) {
+      .footer-pro .footer-inner {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        text-align: center
+      }
+
+      .footer-pro .links {
+        justify-content: center
+      }
+
+      .footer-pro .legal .row {
+        justify-content: center
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-[#0b1020] text-white antialiased">
+
+  <!-- Nav -->
+  <header class="sticky top-0 z-40 glass">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+      <a href="#" class="font-extrabold text-lg sm:text-xl tracking-tight">
+        <img src="assets/logo.png" alt="LLM-Stack" style="height:32px; width:auto; display:block;" />
+      </a>
+      <button id="menuBtn" class="md:hidden outline-btn px-3 py-2 rounded-lg text-sm" aria-expanded="false"
+        aria-controls="mobileNav">Menu</button>
+      <nav class="hidden md:flex items-center gap-5 text-sm text-white/80">
+        <a href="#why" class="hover:text-white">Why</a>
+        <a href="#features" class="hover:text-white">Features</a>
+        <a href="#savings" class="hover:text-white">Cost</a>
+        <a href="#how" class="hover:text-white">How</a>
+        <a href="#install" class="hover:text-white">Install</a>
+        <a href="#comparison" class="hover:text-white">Compare</a>
+        <a href="#pricing" class="hover:text-white">Pricing</a>
+        <a href="#faq" class="hover:text-white">FAQ</a>
+      </nav>
+      <div class="hidden md:flex items-center gap-3">
+        <a href="https://llm-stack.com/demo" class="btn grad lg">Live Demo</a>
+        <a href="#form" class="btn grad lg">Start Free</a>
       </div>
     </div>
+    <!-- Mobile menu -->
+    <nav id="mobileNav" class="hidden md:hidden px-4 sm:px-6 pb-3">
+      <div class="grid gap-2 text-sm text-white/90">
+        <a class="btn grad lg" href="#why">Why</a>
+        <a class="btn grad lg" href="#features">Features</a>
+        <a class="btn grad lg" href="#savings">Cost</a>
+        <a class="btn grad lg" href="#how">How</a>
+        <a class="btn grad lg" href="#install">Install</a>
+        <a class="btn grad lg" href="#comparison">Compare</a>
+        <a class="btn grad lg" href="#pricing">Pricing</a>
+        <a class="btn grad lg" href="#faq">FAQ</a>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+          <a href="https://llm-stack.com/demo" class="btn grad lg">Live Demo</a>
+          <a href="#form" class="btn grad lg">Start Free</a>
+        </div>
+      </div>
+      <div class="sep mt-3"></div>
+    </nav>
   </header>
 
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-20 pb-10">
-    <nav class="flex flex-wrap gap-2 text-sm mb-4">
-      <a href="#/dashboard" class="btn px-3 py-2" data-route="dashboard">Dashboard</a>
-      <a href="#/models" class="btn px-3 py-2" data-route="models">Models</a>
-      <a href="#/deploy" class="btn px-3 py-2" data-route="deploy">Deploy</a>
-      <a href="#/monitor" class="btn px-3 py-2" data-route="monitor">Monitoring</a>
-      <a href="#/finops" class="btn px-3 py-2" data-route="finops">FinOps</a>
-      <a href="#/security" class="btn px-3 py-2" data-route="security">Security</a>
-    </nav>
-
-    <!-- Dashboard -->
-    <section id="page-dashboard" class="space-y-4">
-      <div class="grid md:grid-cols-3 gap-4">
-        <div class="glass ringed p-4"><div class="text-sm text-white/70">GPU Utilization</div><div class="text-3xl font-extrabold mt-1"><span id="gpuNow">62</span>%</div><div class="text-xs text-white/60 mt-1">Target 70–85% for efficiency</div></div>
-        <div class="glass ringed p-4"><div class="text-sm text-white/70">Latency (p95)</div><div class="text-3xl font-extrabold mt-1"><span id="latNow">410</span>ms</div><div class="text-xs text-white/60 mt-1">Autoscaler holds p95 under 600ms</div></div>
-        <div class="glass ringed p-4"><div class="text-sm text-white/70">Monthly GPU Cost</div><div class="text-3xl font-extrabold mt-1">$<span id="costNow">18,900</span></div><div class="text-xs text-white/60 mt-1">↓ from $30,000 baseline</div></div>
+  <!-- Hero -->
+  <section class="aurora">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-14 sm:py-20 md:py-24 text-center">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-[0.75rem] text-white/90">
+        GPU Optimization & Cost Control • Self‑Hosted
+      </div>
+      <h1 class="mt-4 sm:mt-5 text-3xl sm:text-5xl md:text-6xl font-extrabold leading-tight">
+        The Infrastructure Layer for <span
+          class="bg-clip-text text-transparent bg-gradient-to-r from-[var(--grad1)] via-[var(--grad2)] to-[var(--grad3)]">Private
+          LLMs</span>
+      </h1>
+      <p class="mt-3 sm:mt-5 text-base sm:text-lg max-w-2xl sm:max-w-3xl mx-auto text-white/80 px-2">
+        Run and monitor your own AI models behind the firewall. <span class="font-semibold text-white">Cut GPU spend by
+          up to 40%</span> with autoscaling,
+        idle detection, and real‑time FinOps — without cloud lock‑in or data risk.
+      </p>
+      <div class="mt-6 flex flex-wrap items-center justify-center gap-4">
+        <a href="https://llm-stack.com/demo" class="btn grad lg">🚀 Live Demo</a>
+        <a href="#form" class="btn grad lg">💡 Start Free</a>
       </div>
 
-      <div class="grid lg:grid-cols-3 gap-4">
-        <div class="glass ringed p-4 lg:col-span-2">
-          <div class="flex items-center justify-between"><div class="font-semibold">Fleet Overview</div><div class="text-xs text-white/60">Click a row for details</div></div>
-          <div class="mt-3 overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="text-white/70"><tr>
-                <th class="text-left p-2 cursor-pointer" onclick="sortModels('name')">Model</th>
-                <th class="text-left p-2 cursor-pointer" onclick="sortModels('runtime')">Runtime</th>
-                <th class="text-left p-2">GPU</th>
-                <th class="text-left p-2">Replicas</th>
-                <th class="text-left p-2 cursor-pointer" onclick="sortModels('status')">Status</th>
-                <th class="text-left p-2">Actions</th></tr></thead>
-              <tbody id="tableModels" class="text-white/90"></tbody>
-            </table>
-            <div id="tableEmpty" class="text-white/60 text-sm py-6 text-center hidden">No models yet — go to <a class="underline" href="#/deploy">Deploy</a>.</div>
+
+      <div class="mt-8 flex justify-center">
+        <div
+          class="browser-frame mx-auto mt-10 max-w-5xl w-full rounded-xl overflow-hidden shadow-2xl border border-white/10">
+          <div class="browser-bar flex items-center space-x-1 px-3 py-2 bg-slate-800/80">
+            <span class="h-3 w-3 rounded-full bg-red-500 inline-block"></span>
+            <span class="h-3 w-3 rounded-full bg-yellow-400 inline-block"></span>
+            <span class="h-3 w-3 rounded-full bg-green-500 inline-block"></span>
+          </div>
+          <img src="assets/product.png" alt="LLM-Stack Dashboard" class="product-mockup w-full">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why -->
+  <section id="why" class="py-12 sm:py-16 px-4 sm:px-6">
+    <div class="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+      <div class="glass rounded-2xl p-5 sm:p-6 grad-ring">
+        <h3 class="font-semibold text-lg sm:text-xl">Keep Data In‑House</h3>
+        <p class="text-white/80 mt-2">No external APIs. No data egress. Your models, your VPC or on‑prem.</p>
+      </div>
+      <div class="glass rounded-2xl p-5 sm:p-6 grad-ring">
+        <h3 class="font-semibold text-lg sm:text-xl">Slash GPU Waste</h3>
+        <p class="text-white/80 mt-2">Visibility and automation prevent idle spend and over‑provisioning.</p>
+      </div>
+      <div class="glass rounded-2xl p-5 sm:p-6 grad-ring">
+        <h3 class="font-semibold text-lg sm:text-xl">Ship Faster</h3>
+        <p class="text-white/80 mt-2">Prebuilt templates and a unified control plane beat DIY pipelines.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="py-12 sm:py-16 px-4 sm:px-6">
+    <div class="max-w-7xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center">Core Features</h2>
+      <p class="text-center text-white/70 mt-2">Everything you need to deploy, scale, observe, and save.</p>
+      <div class="mt-8 sm:mt-10 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <h3 class="font-semibold text-base sm:text-lg">🚀 Automated Model Deployment</h3>
+          <p class="text-white/80 mt-2">Deploy and manage LLaMA, Mistral, Mixtral, and more—with no DevOps headaches.
+          </p>
+        </div>
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <h3 class="font-semibold text-base sm:text-lg">⚙️ Intelligent Resource Management</h3>
+          <p class="text-white/80 mt-2">Auto‑scale GPU/CPU/RAM, detect idle instances, and route workloads smartly.</p>
+        </div>
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <h3 class="font-semibold text-base sm:text-lg">📊 Cost Control & FinOps</h3>
+          <p class="text-white/80 mt-2">Real‑time spending, alerts, forecasting, and per‑team attribution.</p>
+        </div>
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <h3 class="font-semibold text-base sm:text-lg">🔍 Monitoring & Observability</h3>
+          <p class="text-white/80 mt-2">Latency/throughput, resource utilization, error logs, and version history.</p>
+        </div>
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <h3 class="font-semibold text-base sm:text-lg">🔐 Enterprise‑Grade Security</h3>
+          <p class="text-white/80 mt-2">Self‑hosted, air‑gap, SSO/RBAC, audit logs, and zero persistent telemetry.</p>
+        </div>
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <h3 class="font-semibold text-base sm:text-lg">🧩 Pluggable Runtimes</h3>
+          <p class="text-white/80 mt-2">vLLM, TGI, Triton, Ray, Hugging Face—choose your stack.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cost Savings -->
+  <section id="savings" class="py-12 sm:py-16 px-4 sm:px-6">
+    <div class="max-w-7xl mx-auto">
+      <div class="glass rounded-3xl p-6 sm:p-8">
+        <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center">Slash GPU Costs Without Slowing Down
+        </h2>
+        <p class="text-center mt-3 max-w-2xl sm:max-w-3xl mx-auto text-white/80 px-2">
+          Most teams overspend 20–50% on idle or mis‑allocated GPU capacity. LLM-Stack gives you the visibility and
+          automation
+          to eliminate waste in days — not quarters.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
+          <div class="rounded-2xl p-5 sm:p-6 bg-white/5 border border-white/10">
+            <h3 class="font-semibold">Idle GPU Detection</h3>
+            <p class="text-white/80 mt-2">Auto‑shutdown for unused nodes. Wake on request to keep latency low.</p>
+          </div>
+          <div class="rounded-2xl p-5 sm:p-6 bg-white/5 border border-white/10">
+            <h3 class="font-semibold">Intelligent Routing</h3>
+            <p class="text-white/80 mt-2">Send inference to the most cost‑efficient node or runtime, automatically.</p>
+          </div>
+          <div class="rounded-2xl p-5 sm:p-6 bg-white/5 border border-white/10">
+            <h3 class="font-semibold">Real‑Time FinOps</h3>
+            <p class="text-white/80 mt-2">Per‑model & per‑team spend, alerts, and forecasting to prevent overruns.</p>
           </div>
         </div>
-        <div class="glass ringed p-4">
-          <div class="font-semibold">Recent Alerts</div>
-          <ul id="alertsList" class="mt-2 text-sm space-y-2">
-            <li class="px-3 py-2 rounded" style="background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18)">Idle GPU detected on node g4dn‑2xlarge — shutdown scheduled.</li>
-            <li class="px-3 py-2 rounded" style="background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18)">Latency spike on /api/mixtral — scaling replicas 2 → 3.</li>
-          </ul>
-          <button class="btn mt-3 px-3 py-2 text-sm" onclick="pushAlert()">Simulate Alert</button>
+
+        <div class="mt-6 sm:mt-8 text-center px-2">
+          <span class="inline-block rounded-full px-4 py-2 text-sm bg-white/10 border border-white/15">
+            <span class="font-semibold">ROI Fast Lane:</span> Most teams recover the subscription cost in GPU savings
+            within the first month.
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section id="how" class="py-12 sm:py-16 px-4 sm:px-6">
+    <div class="max-w-7xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center">How It Works</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <div class="text-[0.7rem] font-bold text-[#5b8cff]">STEP 1</div>
+          <h3 class="mt-1 font-semibold">Install in Your Infra</h3>
+          <p class="text-white/80 mt-2">Docker or Helm. Air‑gapped compatible. No external dependencies.</p>
+        </div>
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <div class="text-[0.7rem] font-bold text-[#7b5bff]">STEP 2</div>
+          <h3 class="mt-1 font-semibold">Deploy a Model</h3>
+          <p class="text-white/80 mt-2">Use templates to launch LLaMA/Mistral with your preferred runtime.</p>
+        </div>
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <div class="text-[0.7rem] font-bold text-[#34d2ff]">STEP 3</div>
+          <h3 class="mt-1 font-semibold">Optimize & Observe</h3>
+          <p class="text-white/80 mt-2">Track cost/latency, scale intelligently, and enforce governance.</p>
         </div>
       </div>
 
-      <!-- Visualization Row A -->
-      <div class="grid lg:grid-cols-3 gap-4">
-        <div class="glass ringed p-4">
-          <div class="flex items-center justify-between"><div class="font-semibold">GPU Utilization by Node</div><div class="text-xs text-white/60">Last 5 min</div></div>
-          <canvas id="dbNodes"></canvas>
+      <div class="mt-8 sm:mt-10 glass rounded-2xl p-5 sm:p-6">
+        <div class="flex flex-wrap gap-2 sm:gap-3 text-sm">
+          <button class="tab-btn active px-3 py-2 rounded-lg border border-white/10">Runtimes</button>
+          <button class="tab-btn px-3 py-2 rounded-lg border border-white/10">Deployment</button>
+          <button class="tab-btn px-3 py-2 rounded-lg border border-white/10">Monitoring</button>
         </div>
-        <div class="glass ringed p-4">
-          <div class="flex items-center justify-between"><div class="font-semibold">Latency (p50/p95/p99)</div><div class="text-xs text-white/60">ms</div></div>
-          <canvas id="dbLatency"></canvas>
-        </div>
-        <div class="glass ringed p-4">
-          <div class="flex items-center justify-between"><div class="font-semibold">Requests by Endpoint</div><div class="text-xs text-white/60">share</div></div>
-          <canvas id="dbEndpoints"></canvas>
+        <div class="mt-3 sm:mt-4">
+          <div class="tab-panel">
+            <p class="text-white/80">Supports <strong>vLLM</strong>, <strong>TGI</strong>, <strong>Triton</strong>,
+              <strong>Ray</strong>, and Hugging Face stacks. Swap without rewriting your app.
+            </p>
+          </div>
+          <div class="tab-panel hidden">
+            <p class="text-white/80">Use CLI or UI to configure models, GPUs, and autoscaling. Outputs Docker/Helm
+              configs for reproducible deploys.</p>
+          </div>
+          <div class="tab-panel hidden">
+            <p class="text-white/80">Live metrics for latency, throughput, GPU util, and errors—plus alerts for idle
+              spend or budget overages.</p>
+          </div>
         </div>
       </div>
+    </div>
+  </section>
 
-      <!-- Visualization Row B -->
-      <div class="grid lg:grid-cols-3 gap-4">
-        <div class="glass ringed p-4 lg:col-span-2">
-          <div class="flex items-center justify-between"><div class="font-semibold">Cost Breakdown (Fixed vs Variable)</div><div class="text-xs text-white/60">Monthly</div></div>
-          <canvas id="dbCostStacked"></canvas>
-        </div>
-        <div class="glass ringed p-4">
-          <div class="flex items-center justify-between"><div class="font-semibold">Savings Attribution</div><div class="text-xs text-white/60">percentage</div></div>
-          <canvas id="dbSavings"></canvas>
-        </div>
-      </div>
-    </section>
+  <!-- Install -->
+  <section id="install" class="py-12 sm:py-16 px-4 sm:px-6">
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center">Install in Minutes</h2>
+      <div class="mt-5 sm:mt-6 rounded-2xl overflow-hidden">
+        <div class="bg-[#0a0f1e] p-4 sm:p-5 overflow-x-auto">
+          <pre class="text-[12px] sm:text-[13px] leading-6 text-white/90"><code># Docker (quick start)
+docker run -d --name llmstack -p 8080:8080 ghcr.io/llmstack/llmstack:latest
 
-    <!-- Models -->
-    <section id="page-models" class="space-y-4 hidden">
-      <div class="flex items-center justify-between">
-        <h2 class="text-xl font-extrabold">Models</h2>
-        <div class="flex flex-wrap gap-2">
-          <input id="filterInput" placeholder="Filter models…" class="btn px-3 py-2 bg-transparent text-sm rounded" oninput="renderModelTable()"/>
-          <button class="btn px-3 py-2 text-sm" onclick="seed()">Seed</button>
-          <button class="btn px-3 py-2 text-sm" onclick="wipe()">Clear</button>
-          <a href="#/deploy" class="btn grad px-3 py-2 text-sm font-semibold shadow-lg">Deploy Model</a>
+# Helm (Kubernetes)
+helm repo add llmstack https://charts.llmstack.dev
+helm install llmstack llmstack/llmstack --namespace llmstack --create-namespace
+
+# Authenticate (local admin)
+llmstack login --host http://localhost:8080</code></pre>
         </div>
       </div>
-      <div class="glass ringed p-4">
-        <table class="w-full text-sm">
+      <p class="text-xs sm:text-sm text-white/60 mt-3 text-center">Replace registry/host as needed. Air‑gapped offline
+        bundle available.</p>
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section id="comparison" class="py-12 sm:py-16 px-4 sm:px-6">
+    <div class="max-w-7xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center">How We Compare</h2>
+      <div class="mt-5 sm:mt-8 glass rounded-2xl overflow-x-auto">
+        <table class="w-full text-xs sm:text-sm table">
           <thead class="text-white/70">
-            <tr><th class="text-left p-2">Model</th><th class="text-left p-2">Runtime</th><th class="text-left p-2">GPU</th>
-              <th class="text-left p-2">Replicas</th><th class="text-left p-2">Status</th><th class="text-left p-2">Actions</th></tr>
+            <tr>
+              <th class="text-left p-3">Feature</th>
+              <th class="text-left p-3">LLM-Stack</th>
+              <th class="text-left p-3">Modal</th>
+              <th class="text-left p-3">Anyscale</th>
+              <th class="text-left p-3">RunPod</th>
+              <th class="text-left p-3">BentoML</th>
+            </tr>
           </thead>
-          <tbody id="modelsBody" class="text-white/90"></tbody>
+          <tbody class="text-white/90">
+            <tr>
+              <td class="p-3">Self‑hosted / Air‑gapped</td>
+              <td class="p-3">✅</td>
+              <td class="p-3">❌</td>
+              <td class="p-3">⚠️</td>
+              <td class="p-3">❌</td>
+              <td class="p-3">⚠️</td>
+            </tr>
+            <tr>
+              <td class="p-3">Pluggable runtimes</td>
+              <td class="p-3">✅</td>
+              <td class="p-3">❌</td>
+              <td class="p-3">✅</td>
+              <td class="p-3">❌</td>
+              <td class="p-3">✅</td>
+            </tr>
+            <tr>
+              <td class="p-3">Built‑in FinOps / cost savings</td>
+              <td class="p-3">✅</td>
+              <td class="p-3">❌</td>
+              <td class="p-3">⚠️</td>
+              <td class="p-3">❌</td>
+              <td class="p-3">❌</td>
+            </tr>
+            <tr>
+              <td class="p-3">No vendor lock‑in</td>
+              <td class="p-3">✅</td>
+              <td class="p-3">❌</td>
+              <td class="p-3">⚠️</td>
+              <td class="p-3">❌</td>
+              <td class="p-3">✅</td>
+            </tr>
+            <tr>
+              <td class="p-3">UI + API/CLI</td>
+              <td class="p-3">✅</td>
+              <td class="p-3">✅</td>
+              <td class="p-3">✅</td>
+              <td class="p-3">⚠️</td>
+              <td class="p-3">⚠️</td>
+            </tr>
+          </tbody>
         </table>
-        <div id="modelsEmpty" class="text-white/60 text-sm py-6 text-center hidden">No models yet.</div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- Deploy Wizard -->
-    <section id="page-deploy" class="space-y-4 hidden">
-      <h2 class="text-xl font-extrabold">Deploy New Model</h2>
-      <div class="glass ringed p-4">
-        <div id="wizSteps" class="flex items-center gap-2 text-xs">
-          <div class="px-3 py-1 rounded btn step" data-s="1">1 • Select Model</div>
-          <div class="px-3 py-1 rounded btn step opacity-60" data-s="2">2 • Configure</div>
-          <div class="px-3 py-1 rounded btn step opacity-60" data-s="3">3 • Review</div>
-          <div class="px-3 py-1 rounded btn step opacity-60" data-s="4">4 • Deploy</div>
-        </div>
-        <div class="my-4 border-t border-white/10"></div>
-        <div id="step1" class="grid md:grid-cols-3 gap-4">
-          <label class="grid"><span class="mb-1 text-sm">Model Family</span>
-            <select id="wModel" class="btn rounded px-3 py-2 bg-transparent"><option>LLaMA 3.1 8B</option><option>Mistral 7B</option><option>Mixtral 8x7B</option><option>Gemma 2</option></select></label>
-          <label class="grid"><span class="mb-1 text-sm">Runtime</span>
-            <select id="wRuntime" class="btn rounded px-3 py-2 bg-transparent"><option>vLLM</option><option>Text Generation Inference</option><option>Triton</option><option>Ray Serve</option></select></label>
-          <label class="grid"><span class="mb-1 text-sm">Endpoint Name</span><input id="wEndpoint" placeholder="/api/llama-31" class="btn rounded px-3 py-2 bg-transparent"/></label>
-        </div>
-        <div id="step2" class="grid md:grid-cols-3 gap-4 hidden">
-          <label class="grid"><span class="mb-1 text-sm">GPUs</span><input id="wGPU" type="number" min="0" value="1" class="btn rounded px-3 py-2 bg-transparent"/></label>
-          <label class="grid"><span class="mb-1 text-sm">Replicas</span><input id="wReplicas" type="number" min="1" value="1" class="btn rounded px-3 py-2 bg-transparent"/></label>
-          <label class="flex items-center gap-2"><input id="wAuto" type="checkbox" class="accent-blue-500"><span class="text-sm">Enable autoscaling</span></label>
-        </div>
-        <div id="step3" class="grid gap-3 hidden"><div class="text-sm text-white/80">Review your configuration:</div>
-          —</div>
-        <div id="step4" class="grid md:grid-cols-2 gap-4 hidden">
-          <div class="glass p-3 ringed"><div class="font-semibold mb-2">Docker Command</div>—</div>
-          <div class="glass p-3 ringed"><div class="font-semibold mb-2">Helm (Kubernetes)</div>—</div>
-          <div class="md:col-span-2"><div class="font-semibold mb-1">Deploy Logs</div><div id="deployLogs" class="bg-black/40 rounded p-3 text-[12px] h-40 overflow-auto"></div></div>
-        </div>
-        <div class="my-4 border-t border-white/10"></div>
-        <div class="flex items-center justify-between">
-          <button id="backBtn" class="btn px-3 py-2 text-sm" disabled>Back</button>
-          <div class="flex gap-2">
-            <button id="nextBtn" class="btn grad px-4 py-2 text-sm font-semibold shadow-lg">Next</button>
-            <a href="#/models" id="doneBtn" class="btn px-4 py-2 text-sm hidden">Finish</a>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Monitoring -->
-    <section id="page-monitor" class="space-y-4 hidden">
-      <div class="flex items-center justify-between">
-        <h2 class="text-xl font-extrabold">Monitoring</h2>
-        <div class="flex items-center gap-2">
-          <button id="playBtn" class="btn grad px-3 py-2 text-sm shadow-lg">▶ Play</button>
-          <button id="pauseBtn" class="btn px-3 py-2 text-sm">⏸ Pause</button>
-        </div>
-      </div>
-      <div class="grid md:grid-cols-3 gap-4">
-        <div class="glass ringed p-4"><div class="text-sm text-white/70">GPU Utilization</div><canvas id="mGpu"></canvas></div>
-        <div class="glass ringed p-4"><div class="text-sm text-white/70">Latency (p95)</div><canvas id="mLat"></canvas></div>
-        <div class="glass ringed p-4"><div class="text-sm text-white/70">Throughput</div><canvas id="mThr"></canvas></div>
-      </div>
-    </section>
-
-    <!-- FinOps -->
-    <section id="page-finops" class="space-y-4 hidden">
-      <h2 class="text-xl font-extrabold">FinOps & Cost</h2>
-      <div class="grid lg:grid-cols-3 gap-4">
-        <div class="glass ringed p-4 lg:col-span-2">
-          <div class="flex items-center justify-between flex-wrap gap-3">
-            <div class="font-semibold">Monthly GPU Cost</div>
-            <div class="flex gap-2 text-xs">
-              <label class="flex items-center gap-1"><input type="checkbox" id="sIdle" checked class="accent-blue-500">Idle Shutdown</label>
-              <label class="flex items-center gap-1"><input type="checkbox" id="sRoute" checked class="accent-blue-500">Intelligent Routing</label>
-              <label class="flex items-center gap-1"><input type="checkbox" id="sAuto" checked class="accent-blue-500">Autoscaling</label>
-            </div>
-          </div>
-          <canvas id="fCost"></canvas>
-        </div>
-        <div class="glass ringed p-4">
-          <div class="font-semibold">Spend by Team</div>
-          <canvas id="fTeam"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- Security -->
-    <section id="page-security" class="space-y-4 hidden">
-      <h2 class="text-xl font-extrabold">Security & Privacy</h2>
-      <div class="grid lg:grid-cols-2 gap-4">
-        <div class="glass ringed p-4">
-          <div class="font-semibold mb-2">Access Controls</div>
-          <label class="block text-sm mb-2">SSO Provider
-            <select class="btn rounded px-3 py-2 bg-transparent mt-1"><option>Okta</option><option>Azure AD</option><option>Google Workspace</option></select>
-          </label>
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" checked class="accent-blue-500"> RBAC</label>
-          <label class="flex items-center gap-2 text-sm mt-1"><input type="checkbox" checked class="accent-blue-500"> Audit Logs</label>
-        </div>
-        <div class="glass ringed p-4">
-          <div class="font-semibold mb-2">Data & Deployment</div>
-          <ul class="list-disc ml-5 text-sm text-white/80 space-y-1">
-            <li>Runs entirely in your VPC/on‑prem; no data egress.</li>
-            <li>Air‑gapped & offline installer available.</li>
-            <li>SOC 2 readiness: mapped controls & evidence checklist.</li>
+  <!-- Pricing -->
+  <section id="pricing" class="py-12 sm:py-16 px-4 sm:px-6">
+    <div class="max-w-7xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center">Pricing</h2>
+      <p class="text-center text-white/70 mt-2 px-2">Most teams recover the subscription via GPU savings in the first
+        month.</p>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <h3 class="font-semibold text-lg">Startup</h3>
+          <p class="text-3xl font-extrabold mt-2">$199<span class="text-base font-medium">/mo</span></p>
+          <ul class="mt-4 space-y-2 text-sm text-white/85">
+            <li>• Up to 3 models</li>
+            <li>• Limited infrastructure</li>
+            <li>• Basic dashboards</li>
           </ul>
+          <p class="mt-4 text-sm text-white/70">💡 Offset 100% via idle GPU reductions.</p>
+        </div>
+        <div class="glass rounded-2xl p-5 sm:p-6 border-2 border-white/20">
+          <h3 class="font-semibold text-lg">Growth</h3>
+          <p class="text-3xl font-extrabold mt-2">$999<span class="text-base font-medium">/mo</span></p>
+          <ul class="mt-4 space-y-2 text-sm text-white/85">
+            <li>• 4–10 models</li>
+            <li>• Advanced dashboards</li>
+            <li>• Automation & scaling</li>
+          </ul>
+          <p class="mt-4 text-sm text-white/70">💰 Typical savings: 20–40% within 30 days.</p>
+        </div>
+        <div class="glass rounded-2xl p-5 sm:p-6">
+          <h3 class="font-semibold text-lg">Enterprise</h3>
+          <p class="text-3xl font-extrabold mt-2">Contact for Pricing</p>
+          <ul class="mt-4 space-y-2 text-sm text-white/85">
+            <li>• Multi‑node orchestration</li>
+            <li>• Granular cost reporting</li>
+            <li>• Team‑level controls</li>
+          </ul>
+          <p class="mt-4 text-sm text-white/70">📉 Savings compound with larger fleets.</p>
         </div>
       </div>
-    </section>
-  </div>
+      <div class="text-center mt-6 sm:mt-8 px-2">
+        <a href="#form" class="btn grad lg">Start Free</a>
+      </div>
+    </div>
+  </section>
 
-  <!-- Drawer -->
-  <div id="drawer" class="fixed left-0 right-0 bottom-0 z-50 glass drawer closed rounded-t-2xl">
-    <div class="max-w-5xl mx-auto p-4">
-      <div class="flex items-center justify-between">
-        <div class="font-semibold" id="drawerTitle">Model Details</div>
-        <button class="btn px-2 py-1 text-sm" onclick="closeDrawer()">Close</button>
+  <!-- Testimonial -->
+  <section class="py-12 sm:py-16 px-4 sm:px-6">
+    <div class="max-w-4xl mx-auto text-center glass rounded-3xl p-7 sm:p-10">
+      <blockquote class="text-lg sm:text-xl font-medium">
+        “We stood up self‑hosted LLMs in days instead of months, and cut idle GPU spend by 38% in the first month.”
+      </blockquote>
+      <div class="mt-3 text-sm text-white/80">— Head of ML, Mid‑Market FinTech</div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="py-12 sm:py-16 px-4 sm:px-6">
+    <div class="max-w-6xl mx-auto">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-center">FAQ</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mt-6 sm:mt-8">
+        <details class="glass rounded-2xl p-5">
+          <summary class="font-semibold cursor-pointer">Do you host or manage our models?</summary>
+          <p class="mt-2 text-white/80">No. LLM-Stack is software that runs in your environment. Your data and models
+            stay fully under your control.</p>
+        </details>
+        <details class="glass rounded-2xl p-5">
+          <summary class="font-semibold cursor-pointer">Which runtimes and models are supported?</summary>
+          <p class="mt-2 text-white/80">vLLM, TGI, Triton, Ray, and others. Launch LLaMA, Mistral, Mixtral, Gemma, and
+            more via templates.</p>
+        </details>
+        <details class="glass rounded-2xl p-5">
+          <summary class="font-semibold cursor-pointer">Can we run in air‑gapped environments?</summary>
+          <p class="mt-2 text-white/80">Yes. No outbound telemetry by default and offline install options are available.
+          </p>
+        </details>
+        <details class="glass rounded-2xl p-5">
+          <summary class="font-semibold cursor-pointer">How does LLM-Stack save us money?</summary>
+          <p class="mt-2 text-white/80">By preventing idle GPU spend, autoscaling capacity to match load, routing
+            inference to lower‑cost nodes, and giving finance/engineering shared visibility with alerts and forecasting.
+          </p>
+        </details>
       </div>
-      <div class="grid md:grid-cols-3 gap-4 mt-3">
-        <div class="md:col-span-2">
-          <div class="text-sm text-white/70">Metrics</div>
-          <canvas id="dChart"></canvas>
-        </div>
-        <div>
-          <div class="text-sm text-white/70">Actions</div>
-          <div class="flex gap-2 mt-2">
-            <button class="btn px-3 py-2 text-sm" onclick="drawerScale(1)">+1 Replica</button>
-            <button class="btn px-3 py-2 text-sm" onclick="drawerScale(-1)">-1 Replica</button>
+    </div>
+  </section>
+
+  <section id="form" class="container section">
+    <div class="mx-auto max-w-2xl flex justify-center">
+      <div class="card" style="padding:24px; border-radius:16px;">
+        <h2 style="margin:0 0 6px; font-size:1.75rem; font-weight:800;">Get in Touch</h2>
+        <p class="muted" style="margin:0 0 16px;">Tell us a bit about your use case and we’ll get back within one
+          business day.</p>
+        <form action="#" method="post" class="form" style="display:grid; gap:12px;">
+          <label style="display:grid; gap:6px;">
+            <span class="muted">Name</span>
+            <input type="text" name="name" required
+              style="background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:#fff; padding:12px 14px; border-radius:12px; outline:none;">
+          </label>
+          <label style="display:grid; gap:6px;">
+            <span class="muted">Role</span>
+            <input type="text" name="role" required
+              style="background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:#fff; padding:12px 14px; border-radius:12px; outline:none;">
+          </label>
+          <label style="display:grid; gap:6px;">
+            <span class="muted">Company Email</span>
+            <input type="email" name="email" required
+              style="background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:#fff; padding:12px 14px; border-radius:12px; outline:none;">
+          </label>
+          <label style="display:grid; gap:6px;">
+            <span class="muted">Describe Your Inquiry</span>
+            <textarea name="inquiry" rows="5" required
+              style="background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:#fff; padding:12px 14px; border-radius:12px; outline:none;"></textarea>
+          </label>
+          <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:8px;">
+            <button type="submit" class="btn grad lg">Submit</button>
           </div>
-          <div class="mt-3 text-sm">
-            <span class="btn px-2 py-1 rounded">vLLM</span>
-            <span class="btn px-2 py-1 rounded">GPU: <span id="drawerGPU">1</span></span>
-            <span class="btn px-2 py-1 rounded">Replicas: <span id="drawerRep">1</span></span>
-          </div>
-          <div class="mt-4 text-sm">
-            <div class="font-semibold mb-1">Logs</div>
-            <div id="drawerLogs" class="bg-black/40 rounded p-2 h-40 overflow-auto text-[12px]"></div>
-          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+
+
+  <!-- Dual CTA -->
+
+
+
+
+
+
+
+
+
+
+  <!-- Demo & Docs anchors -->
+  <!-- Footer -->
+
+  <footer class="footer-pro">
+    <div class="footer-inner container">
+      <div class="brand">
+        <img src="assets/logo.png" alt="LLM-Stack" style="height:28px; width:auto; display:block; border-radius:6px;" />
+      </div>
+      <nav class="links">
+        <a href="#why">Why</a>
+        <a href="#features">Features</a>
+        <a href="#finops">FinOps</a>
+        <a href="#security">Security</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+        <a href="#form">Start Free</a>
+      </nav>
+      <div class="social">
+        <a aria-label="LinkedIn" href="#" class="social-btn" title="LinkedIn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M4.98 3.5C4.98 4.88 3.86 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.5 8h4V23h-4V8zm7.5 0h3.8v2.05h.05c.53-1 1.82-2.05 3.75-2.05 4.01 0 4.75 2.64 4.75 6.07V23h-4v-6.63c0-1.58-.03-3.63-2.21-3.63-2.22 0-2.56 1.73-2.56 3.52V23h-4V8z" />
+          </svg>
+        </a>
+        <a aria-label="GitHub" href="#" class="social-btn" title="GitHub">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 .5a12 12 0 0 0-3.79 23.4c.6.11.82-.26.82-.58v-2.02c-3.34.73-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.76.08-.74.08-.74 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.83 1.3 3.52.99.11-.8.43-1.3.78-1.6-2.66-.3-5.46-1.33-5.46-5.9 0-1.3.47-2.37 1.24-3.2-.12-.31-.54-1.56.12-3.25 0 0 1.01-.32 3.3 1.23a11.4 11.4 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.67 1.69.25 2.94.12 3.25.77.83 1.23 1.9 1.23 3.2 0 4.58-2.8 5.6-5.47 7.89V23c0 .32.22.69.83.58A12 12 0 0 0 12 .5z" />
+          </svg>
+        </a>
+        <a aria-label="Email" href="#form" class="social-btn" title="Contact">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 13.065L.727 4.5h22.546L12 13.065zM0 6.232l12 9.12 12-9.12V20.25H0V6.232z" />
+          </svg>
+        </a>
+      </div>
+    </div>
+    <div class="legal">
+      <div class="container row space-between align-center wrap gap-12">
+        <span class="muted">© <span id="year"></span> LLM-Stack. All rights reserved.</span>
+        <div class="row gap-12">
+          <a href="#" class="muted">Privacy</a>
+          <a href="#" class="muted">Terms</a>
+          <a href="#form" class="muted">Contact</a>
         </div>
       </div>
     </div>
-  </div>
+  </footer>
+  <script>( function () { var y = document.getElementById( 'year' ); if ( y ) { y.textContent = new Date().getFullYear(); } } )();</script>
 
-  <!-- Command Palette -->
-  <div id="palette" class="fixed inset-0 z-50 hidden">
-    <div class="absolute inset-0 bg-black/60"></div>
-    <div class="relative max-w-xl mx-auto mt-28 glass rounded-xl p-3">
-      <input id="palInput" placeholder="Type to jump (dashboard, models, deploy, monitor, finops, security)…" class="w-full btn rounded px-3 py-2 bg-transparent text-sm"/>
-      <div id="palList" class="mt-2 text-sm"></div>
-    </div>
-  </div>
 
-<script>
-  // ==== Tiny Chart Utils (no dependencies) =====
-  const Colors = ['#5b8cff','#7b5bff','#34d2ff','#9ad0ff','#8c5bff','#ff8a8a','#3ddc97'];
-  function $c(id){ const el=document.getElementById(id); const ctx=el.getContext('2d'); const dpr=window.devicePixelRatio||1; const w=el.clientWidth, h=el.clientHeight||160; el.width=w*dpr; el.height=h*dpr; ctx.scale(dpr,dpr); ctx.clearRect(0,0,w,h); return {el,ctx,w,h}; }
-  function drawAxes(ctx,w,h,margin=28){ ctx.strokeStyle='rgba(255,255,255,.15)'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(margin,margin); ctx.lineTo(margin,h-margin); ctx.lineTo(w-margin,h-margin); ctx.stroke(); }
-  function normalize(data, max){ return data.map(v=> v/max); }
-  function maxOf(arrs){ return Math.max(...arrs.flat()); }
-
-  function barChart(id, labels, series, stacked=false){
-    const {ctx,w,h}= $c(id); const m=28; const sCount=series.length; const n=labels.length;
-    drawAxes(ctx,w,h,m); const max = stacked? Math.max(...labels.map((_,i)=> series.reduce((a,s)=> a+(s.data[i]||0),0))) : maxOf(series.map(s=>s.data));
-    const bw = (w-2*m)/n*0.7; const gap = (w-2*m)/n*0.3;
-    labels.forEach((lab,i)=>{
-      let x = m + i*(bw+gap) + gap/2;
-      let baseY = h-m;
-      series.forEach((s,si)=>{
-        const val = s.data[i]||0; const ratio = (max? val/max : 0); const bh = ratio * (h-2*m);
-        ctx.fillStyle = s.color || Colors[si%Colors.length];
-        const barW = stacked ? bw : (bw/sCount - 4);
-        const bx = stacked ? x : (x + si*(barW+4));
-        const by = baseY - bh;
-        ctx.fillRect(bx, by, barW, bh);
-        if(stacked){ baseY = by; }
-      });
-      ctx.fillStyle='rgba(255,255,255,.65)'; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.fillText(lab, x + (stacked? bw/2 : bw/2), h-8);
-    });
-  }
-
-  function lineChart(id, labels, series){
-    const {ctx,w,h}= $c(id); const m=28; drawAxes(ctx,w,h,m);
-    const max = maxOf(series.map(s=>s.data)); const xw = (w-2*m)/(labels.length-1||1);
-    series.forEach((s,si)=>{
-      ctx.strokeStyle = s.color || Colors[si%Colors.length]; ctx.lineWidth=2; ctx.beginPath();
-      s.data.forEach((v,i)=>{
-        const x = m + i*xw; const y = h-m - (max? (v/max)*(h-2*m) : 0);
-        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-      }); ctx.stroke();
-    });
-  }
-
-  function doughnutChart(id, labels, values){
-    const {ctx,w,h}= $c(id); const cx=w/2, cy=h/2, r=Math.min(w,h)/2 - 16; const total = values.reduce((a,b)=>a+b,0)||1;
-    let start= -Math.PI/2;
-    values.forEach((v,i)=>{
-      const ang = (v/total)*Math.PI*2; ctx.beginPath(); ctx.fillStyle=Colors[i%Colors.length];
-      ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,start,start+ang); ctx.closePath(); ctx.fill(); start += ang;
-    });
-    ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(cx,cy,r*0.55,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation='source-over';
-  }
-
-  function areaChart(id, labels, series){
-    const {ctx,w,h}= $c(id); const m=28; drawAxes(ctx,w,h,m);
-    const max = maxOf(series.map(s=>s.data)); const xw = (w-2*m)/(labels.length-1||1);
-    series.forEach((s,si)=>{
-      ctx.fillStyle = (s.color || Colors[si%Colors.length]) + '55'; ctx.strokeStyle=s.color || Colors[si%Colors.length]; ctx.lineWidth=2;
-      ctx.beginPath();
-      s.data.forEach((v,i)=>{
-        const x = m + i*xw; const y = h-m - (max? (v/max)*(h-2*m) : 0);
-        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-      });
-      ctx.lineTo(m + (labels.length-1)*xw, h-m); ctx.lineTo(m, h-m); ctx.closePath(); ctx.fill();
-      ctx.beginPath();
-      s.data.forEach((v,i)=>{ const x=m+i*xw; const y=h-m - (max? (v/max)*(h-2*m) : 0); if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); });
-      ctx.stroke();
-    });
-  }
-
-  // ==== App State & Router ====
-  const Store = { models: JSON.parse(localStorage.getItem('llms')||'[]'), sortKey:'name', sortDir:1, staged:null, playing:true };
-  function save(){ localStorage.setItem('llms', JSON.stringify(Store.models)); }
-  const pages = ['dashboard','models','deploy','monitor','finops','security'];
-  function route(){
-    const hash = location.hash.replace('#/','')||'dashboard';
-    pages.forEach(p=> document.getElementById('page-'+p).classList.toggle('hidden', p!==hash));
-    document.querySelectorAll('[data-route]').forEach(a=> a.classList.toggle('grad', a.getAttribute('data-route')===hash));
-    if(hash==='dashboard'){ renderDashboard(); renderDashboardCharts(); }
-    if(hash==='models'){ renderModelTable(); }
-    if(hash==='monitor'){ renderMonitorCharts(); }
-    if(hash==='finops'){ renderFinopsCharts(); }
-    if(hash==='deploy'){ wizard(1); }
-  }
-  window.addEventListener('hashchange', route);
-  window.addEventListener('resize', ()=> { // Redraw on resize for crispness
-    const hash = location.hash.replace('#/','')||'dashboard';
-    if(hash==='dashboard') renderDashboardCharts();
-    if(hash==='monitor') renderMonitorCharts();
-    if(hash==='finops') renderFinopsCharts();
-  });
-  route();
-
-  // ==== Tables & Controls ====
-  function renderDashboard(){
-    const tbody = document.getElementById('tableModels');
-    const empty = document.getElementById('tableEmpty');
-    tbody.innerHTML = '';
-    if(Store.models.length===0){ empty.classList.remove('hidden'); return; } else empty.classList.add('hidden');
-    const data = [...Store.models].sort((a,b)=> (a[Store.sortKey]>b[Store.sortKey]?1:-1)*Store.sortDir);
-    data.forEach((m, i)=>{
-      const tr = document.createElement('tr'); tr.className='hover-row';
-      tr.innerHTML = `<td class="p-2">${m.name}</td><td class="p-2">${m.runtime}</td><td class="p-2">${m.gpus}</td><td class="p-2">${m.replicas}</td><td class="p-2">${m.status}</td><td class="p-2"><button class="btn px-2 py-1 text-xs" onclick="openDrawer(${i})">View</button></td>`;
-      tbody.appendChild(tr);
-    });
-    document.getElementById('gpuNow').textContent = 60 + Math.floor(Math.random()*20);
-    document.getElementById('latNow').textContent = 350 + Math.floor(Math.random()*200);
-    document.getElementById('costNow').textContent = (18000 + Math.floor(Math.random()*2000)).toLocaleString();
-  }
-  function sortModels(key){ if(Store.sortKey===key){ Store.sortDir*=-1; } else { Store.sortKey=key; Store.sortDir=1; } renderDashboard(); }
-
-  function renderModelTable(){
-    const body = document.getElementById('modelsBody');
-    const empty = document.getElementById('modelsEmpty');
-    const q = (document.getElementById('filterInput').value||'').toLowerCase();
-    const data = Store.models.filter(m => !q || m.name.toLowerCase().includes(q) || m.runtime.toLowerCase().includes(q));
-    body.innerHTML='';
-    if(data.length===0){ empty.classList.remove('hidden'); } else empty.classList.add('hidden');
-    data.forEach((m,i)=>{
-      const tr = document.createElement('tr'); tr.className='hover-row';
-      tr.innerHTML = `<td class="p-2">${m.name}</td><td class="p-2">${m.runtime}</td><td class="p-2">${m.gpus}</td><td class="p-2">${m.replicas}</td><td class="p-2">${m.status}</td>
-      <td class="p-2 flex gap-2">
-        <button class="btn px-2 py-1 text-xs" onclick="openDrawer(${i})">View</button>
-        <button class="btn px-2 py-1 text-xs" onclick="replica(${i},1)">+1</button>
-        <button class="btn px-2 py-1 text-xs" onclick="replica(${i},-1)">-1</button>
-        <button class="btn px-2 py-1 text-xs" onclick="toggle(${i})">${m.status==='Running'?'Stop':'Start'}</button>
-        <button class="btn px-2 py-1 text-xs" onclick="del(${i})">Delete</button>
-      </td>`;
-      body.appendChild(tr);
-    });
-  }
-  function seed(){ Store.models=[{name:'LLaMA 3.1 8B', runtime:'vLLM', gpus:1, replicas:2, status:'Running'},{name:'Mistral 7B', runtime:'TGI', gpus:1, replicas:1, status:'Stopped'},{name:'Mixtral 8x7B', runtime:'Ray Serve', gpus:4, replicas:2, status:'Running'}]; save(); renderDashboard(); renderModelTable(); }
-  function wipe(){ Store.models=[]; save(); renderDashboard(); renderModelTable(); }
-  function replica(i,d){ Store.models[i].replicas=Math.max(0,Store.models[i].replicas+d); save(); renderDashboard(); renderModelTable(); }
-  function toggle(i){ Store.models[i].status=Store.models[i].status==='Running'?'Stopped':'Running'; save(); renderDashboard(); renderModelTable(); }
-  function del(i){ Store.models.splice(i,1); save(); renderDashboard(); renderModelTable(); }
-
-  // ==== Drawer ====
-  let dTimer=null; let dData=Array.from({length:20},()=> 40+Math.random()*40);
-  function openDrawer(i){
-    const m = Store.models[i];
-    document.getElementById('drawerTitle').textContent = m.name;
-    document.getElementById('drawerGPU').textContent = m.gpus;
-    document.getElementById('drawerRep').textContent = m.replicas;
-    const logs = document.getElementById('drawerLogs'); logs.textContent='';
-    ['Initializing runtime…','Downloading weights…','Warmup complete.','Serving on '+(m.endpoint||'/api/'+m.name.toLowerCase().replace(/\s+/g,'-'))]
-      .forEach((l,idx)=> setTimeout(()=>{ logs.textContent += l+'\n'; logs.scrollTop=logs.scrollHeight; }, 300*idx));
-    renderDrawerChart();
-    document.getElementById('drawer').classList.remove('closed');
-    document.getElementById('drawer').scrollIntoView({behavior:'smooth', block:'end'});
-    if(dTimer) clearInterval(dTimer);
-    dTimer=setInterval(()=>{ dData.push(40+Math.random()*40); if(dData.length>30) dData.shift(); renderDrawerChart(); }, 1200);
-  }
-  function renderDrawerChart(){
-    const labels = Array.from({length:dData.length},(_,i)=> i);
-    lineChart('dChart', labels, [{data:dData, color:'#34d2ff'}]);
-  }
-  function closeDrawer(){ document.getElementById('drawer').classList.add('closed'); if(dTimer) clearInterval(dTimer); }
-  function drawerScale(delta){
-    const name = document.getElementById('drawerTitle').textContent;
-    const idx = Store.models.findIndex(m=>m.name===name);
-    if(idx>=0){ replica(idx, delta); document.getElementById('drawerRep').textContent = Store.models[idx].replicas; }
-  }
-
-  // ==== Dashboard Charts ====
-  function renderDashboardCharts(){
-    barChart('dbNodes',['node‑a','node‑b','node‑c','node‑d','node‑e'],[{data:[82,56,71,63,48]}]);
-    // Latency grouped bars (p50/p95/p99 across models)
-    const labs = ['LLaMA','Mistral','Mixtral','Gemma'];
-    barChart('dbLatency', labs, [
-      {data:[180,140,210,160], color:'#34d2ff'},
-      {data:[520,460,610,500], color:'#7b5bff'},
-      {data:[900,820,980,860], color:'#ff8a8a'}
-    ]);
-    doughnutChart('dbEndpoints',['/llama','/mistral','/mixtral','/gemma'],[42,26,22,10]);
-    // Stacked cost
-    const months=['Mar','Apr','May','Jun','Jul','Aug']; const fixed=[6000,6100,6050,6100,6150,6200]; const variable=[22000,24000,24450,23400,24850,23800];
-    barChart('dbCostStacked', months, [{data:fixed, color:'#7b5bff'},{data:variable, color:'#34d2ff'}], true);
-    // Savings (displayed as area chart for clarity)
-    areaChart('dbSavings', ['Idle','Route','Auto','Batch','Quant'], [{data:[28,22,26,14,10], color:'#5b8cff'}]);
-  }
-
-  // ==== Monitoring Charts ====
-  let monTimer=null; let mg=[...Array(20)].map(()=>40+Math.random()*40), ml=[...Array(20)].map(()=>150+Math.random()*150), mt=[...Array(20)].map(()=>20+Math.random()*20);
-  function renderMonitorCharts(){
-    const labels = Array.from({length: mg.length}, (_,i)=> i);
-    lineChart('mGpu', labels, [{data:mg, color:'#5b8cff'}]);
-    lineChart('mLat', labels, [{data:ml, color:'#7b5bff'}]);
-    lineChart('mThr', labels, [{data:mt, color:'#34d2ff'}]);
-    if(monTimer) clearInterval(monTimer);
-    monTimer = setInterval(()=>{
-      mg.push(40+Math.random()*40); if(mg.length>30) mg.shift();
-      ml.push(150+Math.random()*150); if(ml.length>30) ml.shift();
-      mt.push(20+Math.random()*20); if(mt.length>30) mt.shift();
-      const h = location.hash.replace('#/','')||'dashboard';
-      if(h==='monitor'){ renderMonitorCharts(); } else { clearInterval(monTimer); }
-    }, 1200);
-    document.getElementById('playBtn').onclick = ()=>{ if(!monTimer){ renderMonitorCharts(); } };
-    document.getElementById('pauseBtn').onclick = ()=>{ if(monTimer){ clearInterval(monTimer); monTimer=null; } };
-  }
-
-  // ==== FinOps Charts & Toggles ====
-  function renderFinopsCharts(){
-    const months=['Mar','Apr','May','Jun','Jul','Aug'];
-    const base=[28000,30000,30500,29500,31000,30000];
-    const idle = document.getElementById('sIdle').checked ? 0.78 : 1.0;
-    const route = document.getElementById('sRoute').checked ? 0.85 : 1.0;
-    const auto = document.getElementById('sAuto').checked ? 0.75 : 1.0;
-    const mul = idle*route*auto;
-    const after = base.map(v=> Math.round(v*mul));
-    lineChart('fCost', months, [{data:base, color:'#ff8a8a'}, {data:after, color:'#34d2ff'}]);
-    // Spend by team (bar)
-    barChart('fTeam', ['Data','Product','Research','Ops'], [{data:[8200,5200,4600,2600]}]);
-    ['sIdle','sRoute','sAuto'].forEach(id=> document.getElementById(id).onchange = renderFinopsCharts);
-  }
-
-  // ==== Deploy Wizard ====
-  let step=1;
-  function wizard(s){
-    step=s;
-    ['step1','step2','step3','step4'].forEach((id,idx)=>{
-      document.getElementById(id).classList.toggle('hidden', idx!==s-1);
-      document.querySelector(`[data-s="${idx+1}"]`).classList.toggle('opacity-60', idx!==s-1);
-    });
-    document.getElementById('backBtn').disabled = s===1;
-    document.getElementById('nextBtn').classList.toggle('hidden', s===4);
-    document.getElementById('doneBtn').classList.toggle('hidden', s!==4);
-  }
-  document.getElementById('backBtn').addEventListener('click', ()=> wizard(step-1));
-  document.getElementById('nextBtn').addEventListener('click', ()=>{
-    if(step===1){
-      const ep = document.getElementById('wEndpoint').value || '/api/'+document.getElementById('wModel').value.toLowerCase().replace(/\s+/g,'-');
-      document.getElementById('wEndpoint').value = ep; wizard(2);
-    } else if(step===2){
-      const cfg = { model: wModel.value, runtime:wRuntime.value, endpoint:wEndpoint.value, gpus:+wGPU.value||0, replicas:+wReplicas.value||1, autoscale:wAuto.checked };
-      Store.staged = cfg;
-      reviewCfg.textContent = JSON.stringify(cfg, null, 2);
-      cmdDocker.textContent = `docker run -d --name ${cfg.endpoint.replace('/api/','').replace(/[^a-z0-9-]/gi,'')} -p 8080:8080 \n  -e MODEL="${cfg.model}" -e RUNTIME="${cfg.runtime}" \n  -e GPUS=${cfg.gpus} -e REPLICAS=${cfg.replicas} -e AUTOSCALE=${cfg.autoscale} \n  ghcr.io/llmstack/llmstack:latest`;
-      cmdHelm.textContent = `helm install ${cfg.endpoint.replace('/','-')} llmstack/llmstack \n  --set model.family="${cfg.model}" \n  --set runtime="${cfg.runtime}" \n  --set resources.gpu=${cfg.gpus} \n  --set replicaCount=${cfg.replicas} \n  --set autoscaling.enabled=${cfg.autoscale} \n  --set endpoint.path="${cfg.endpoint}"`;
-      wizard(3);
-    } else if(step===3){
-      wizard(4);
-      const box = document.getElementById('deployLogs'); box.textContent='';
-      const lines=['Validating configuration…','Provisioning containers…','Pulling runtime image…','Downloading model weights…','Initializing tensor cache…','Health checks passing.','Deployment successful.'];
-      lines.forEach((l,i)=> setTimeout(()=>{ box.textContent += l+'\n'; box.scrollTop=box.scrollHeight; }, 400*i));
-      setTimeout(()=>{
-        const m = Store.staged; Store.models.push({name:m.model, runtime:m.runtime, gpus:m.gpus, replicas:m.replicas, status:'Running', endpoint:m.endpoint}); save();
-      }, 2800);
+  <script>
+    // Tabs
+    const tabButtons = document.querySelectorAll( '.tab-btn' );
+    const panels = document.querySelectorAll( '.tab-panel' );
+    function activateTab( idx ) {
+      tabButtons.forEach( ( b, i ) => b.classList.toggle( 'active', i === idx ) );
+      panels.forEach( ( p, i ) => p.classList.toggle( 'hidden', i !== idx ) );
     }
-  });
+    tabButtons.forEach( ( btn, i ) => btn.addEventListener( 'click', () => activateTab( i ) ) );
 
-  // Alerts
-  function pushAlert(){
-    const list = document.getElementById('alertsList');
-    const li = document.createElement('li'); li.className='px-3 py-2 rounded'; li.style.cssText='background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18)';
-    const msgs=['Idle GPU detected on node g5.2xlarge — shutdown scheduled.','Latency spike on /api/llama — autoscaling to 3 replicas.','Budget overrun forecast for Team Data — alerting FinOps.'];
-    li.textContent = msgs[Math.floor(Math.random()*msgs.length)]; list.prepend(li);
-  }
-
-  // Seed on first load for a better demo
-  if(Store.models.length===0){ seed(); }
-</script>
+    // Mobile menu
+    const menuBtn = document.getElementById( 'menuBtn' );
+    const mobileNav = document.getElementById( 'mobileNav' );
+    if ( menuBtn ) {
+      menuBtn.addEventListener( 'click', () => {
+        const open = mobileNav.classList.contains( 'hidden' );
+        mobileNav.classList.toggle( 'hidden', !open );
+        menuBtn.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+      } );
+    }
+  </script>
 </body>
+
 </html>
