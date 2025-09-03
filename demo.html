@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LLMStack Demo — Interactive Control Plane (V5 — offline charts)</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --bg: #0a0f1e;
+            --panel: #0f1530;
+            --g1: #5b8cff;
+            --g2: #7b5bff;
+            --g3: #34d2ff;
+            --g4: #8c5bff;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: #fff;
+        }
+
+        * {
+            transition: all .18s ease;
+        }
+
+        .aurora {
+            position: fixed;
+            inset: -20% -20% auto -20%;
+            height: 60vh;
+            z-index: -1;
+            background: radial-gradient(35% 55% at 10% 20%, rgba(91, 140, 255, .20), transparent 60%),
+                radial-gradient(30% 45% at 80% 10%, rgba(123, 91, 255, .18), transparent 60%),
+                radial-gradient(40% 60% at 50% 80%, rgba(52, 210, 255, .16), transparent 60%);
+            filter: blur(40px);
+            animation: drift 18s ease-in-out infinite alternate;
+            opacity: .8;
+        }
+
+        @keyframes drift {
+            from {
+                transform: translateY(-6%) translateX(0%);
+            }
+
+            to {
+                transform: translateY(6%) translateX(2%);
+            }
+        }
+
+        .glass {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .04));
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 14px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, .35);
+        }
+
+        .glass:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 34px rgba(91, 140, 255, .28);
+            border-color: rgba(255, 255, 255, .18);
+        }
+
+        .ringed {
+            position: relative;
+            border-radius: 16px;
+        }
+
+        .ringed:before {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            padding: 1px;
+            border-radius: 16px;
+            background: linear-gradient(90deg, var(--g1), var(--g2), var(--g3));
+            -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .btn {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, .18);
+            background: rgba(255, 255, 255, .06);
+        }
+
+        .btn:hover {
+            border-color: rgba(255, 255, 255, .28);
+            background: rgba(255, 255, 255, .10);
+            transform: translateY(-1px);
+        }
+
+        .grad {
+            background-image: linear-gradient(90deg, var(--g1), var(--g2), var(--g3), var(--g4));
+            background-size: 300% 100%;
+            border-color: transparent;
+        }
+
+        .grad:hover {
+            background-position: 100% 0;
+            box-shadow: 0 12px 28px rgba(91, 140, 255, .45);
+        }
+
+        .hover-row:hover {
+            background: rgba(255, 255, 255, .06);
+        }
+
+        .drawer {
+            transition: transform .28s ease;
+        }
+
+        .drawer.closed {
+            transform: translateY(105%);
+        }
+
+        .topbar {
+            backdrop-filter: blur(12px);
+            background: linear-gradient(180deg, rgba(8, 12, 26, .65), rgba(8, 12, 26, .35));
+            border-bottom: 1px solid rgba(255, 255, 255, .12);
+        }
+
+        .kbd {
+            border: 1px solid rgba(255, 255, 255, .25);
+            background: rgba(255, 255, 255, .08);
+            border-radius: 6px;
+            padding: 0 6px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 160px;
+        }
+    </style>
+</head>
+
+<body class="antialiased">
+    <div class="aurora"></div>
+
+    <header class="fixed top-0 left-0 right-0 z-40 topbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <img src="assets/logo.png" alt="LLMStack" class="w-12 h-12 rounded-xl shadow-lg" />
+                <div class="font-extrabold tracking-tight">LLMStack</div>
+                <div class="hidden md:flex items-center gap-2 text-xs text-white/70 ml-3">
+                    <span>Self‑Hosted LLM Control Plane</span><span>•</span><span>Cut GPU spend by up to 40%</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="hidden lg:flex items-center gap-2 text-xs text-white/70">
+                    <span class="kbd">⌘</span><span>+</span><span class="kbd">K</span><span> Command Palette</span>
+                </div>
+                <a href="#/deploy" class="btn grad px-3 py-2 text-sm font-semibold shadow-lg">Deploy Model</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-20 pb-10">
+        <nav class="flex flex-wrap gap-2 text-sm mb-4">
+            <a href="#/dashboard" class="btn px-3 py-2" data-route="dashboard">Dashboard</a>
+            <a href="#/models" class="btn px-3 py-2" data-route="models">Models</a>
+            <a href="#/deploy" class="btn px-3 py-2" data-route="deploy">Deploy</a>
+            <a href="#/monitor" class="btn px-3 py-2" data-route="monitor">Monitoring</a>
+            <a href="#/finops" class="btn px-3 py-2" data-route="finops">FinOps</a>
+            <a href="#/security" class="btn px-3 py-2" data-route="security">Security</a>
+        </nav>
+
+        <!-- Dashboard -->
+        <section id="page-dashboard" class="space-y-4">
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="glass ringed p-4">
+                    <div class="text-sm text-white/70">GPU Utilization</div>
+                    <div class="text-3xl font-extrabold mt-1"><span id="gpuNow">62</span>%</div>
+                    <div class="text-xs text-white/60 mt-1">Target 70–85% for efficiency</div>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="text-sm text-white/70">Latency (p95)</div>
+                    <div class="text-3xl font-extrabold mt-1"><span id="latNow">410</span>ms</div>
+                    <div class="text-xs text-white/60 mt-1">Autoscaler holds p95 under 600ms</div>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="text-sm text-white/70">Monthly GPU Cost</div>
+                    <div class="text-3xl font-extrabold mt-1">$<span id="costNow">18,900</span></div>
+                    <div class="text-xs text-white/60 mt-1">↓ from $30,000 baseline</div>
+                </div>
+            </div>
+
+            <div class="grid lg:grid-cols-3 gap-4">
+                <div class="glass ringed p-4 lg:col-span-2">
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold">Fleet Overview</div>
+                        <div class="text-xs text-white/60">Click a row for details</div>
+                    </div>
+                    <div class="mt-3 overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="text-white/70">
+                                <tr>
+                                    <th class="text-left p-2 cursor-pointer" onclick="sortModels('name')">Model</th>
+                                    <th class="text-left p-2 cursor-pointer" onclick="sortModels('runtime')">Runtime
+                                    </th>
+                                    <th class="text-left p-2">GPU</th>
+                                    <th class="text-left p-2">Replicas</th>
+                                    <th class="text-left p-2 cursor-pointer" onclick="sortModels('status')">Status</th>
+                                    <th class="text-left p-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableModels" class="text-white/90"></tbody>
+                        </table>
+                        <div id="tableEmpty" class="text-white/60 text-sm py-6 text-center hidden">No models yet — go to
+                            <a class="underline" href="#/deploy">Deploy</a>.
+                        </div>
+                    </div>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="font-semibold">Recent Alerts</div>
+                    <ul id="alertsList" class="mt-2 text-sm space-y-2">
+                        <li class="px-3 py-2 rounded"
+                            style="background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18)">Idle GPU
+                            detected on node g4dn‑2xlarge — shutdown scheduled.</li>
+                        <li class="px-3 py-2 rounded"
+                            style="background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18)">Latency
+                            spike on /api/mixtral — scaling replicas 2 → 3.</li>
+                    </ul>
+                    <button class="btn mt-3 px-3 py-2 text-sm" onclick="pushAlert()">Simulate Alert</button>
+                </div>
+            </div>
+
+            <!-- Visualization Row A -->
+            <div class="grid lg:grid-cols-3 gap-4">
+                <div class="glass ringed p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold">GPU Utilization by Node</div>
+                        <div class="text-xs text-white/60">Last 5 min</div>
+                    </div>
+                    <canvas id="dbNodes"></canvas>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold">Latency (p50/p95/p99)</div>
+                        <div class="text-xs text-white/60">ms</div>
+                    </div>
+                    <canvas id="dbLatency"></canvas>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold">Requests by Endpoint</div>
+                        <div class="text-xs text-white/60">share</div>
+                    </div>
+                    <canvas id="dbEndpoints"></canvas>
+                </div>
+            </div>
+
+            <!-- Visualization Row B -->
+            <div class="grid lg:grid-cols-3 gap-4">
+                <div class="glass ringed p-4 lg:col-span-2">
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold">Cost Breakdown (Fixed vs Variable)</div>
+                        <div class="text-xs text-white/60">Monthly</div>
+                    </div>
+                    <canvas id="dbCostStacked"></canvas>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="font-semibold">Savings Attribution</div>
+                        <div class="text-xs text-white/60">percentage</div>
+                    </div>
+                    <canvas id="dbSavings"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Models -->
+        <section id="page-models" class="space-y-4 hidden">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-extrabold">Models</h2>
+                <div class="flex flex-wrap gap-2">
+                    <input id="filterInput" placeholder="Filter models…"
+                        class="btn px-3 py-2 bg-transparent text-sm rounded" oninput="renderModelTable()" />
+                    <button class="btn px-3 py-2 text-sm" onclick="seed()">Seed</button>
+                    <button class="btn px-3 py-2 text-sm" onclick="wipe()">Clear</button>
+                    <a href="#/deploy" class="btn grad px-3 py-2 text-sm font-semibold shadow-lg">Deploy Model</a>
+                </div>
+            </div>
+            <div class="glass ringed p-4">
+                <table class="w-full text-sm">
+                    <thead class="text-white/70">
+                        <tr>
+                            <th class="text-left p-2">Model</th>
+                            <th class="text-left p-2">Runtime</th>
+                            <th class="text-left p-2">GPU</th>
+                            <th class="text-left p-2">Replicas</th>
+                            <th class="text-left p-2">Status</th>
+                            <th class="text-left p-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modelsBody" class="text-white/90"></tbody>
+                </table>
+                <div id="modelsEmpty" class="text-white/60 text-sm py-6 text-center hidden">No models yet.</div>
+            </div>
+        </section>
+
+        <!-- Deploy Wizard -->
+        <section id="page-deploy" class="space-y-4 hidden">
+            <h2 class="text-xl font-extrabold">Deploy New Model</h2>
+            <div class="glass ringed p-4">
+                <div id="wizSteps" class="flex items-center gap-2 text-xs">
+                    <div class="px-3 py-1 rounded btn step" data-s="1">1 • Select Model</div>
+                    <div class="px-3 py-1 rounded btn step opacity-60" data-s="2">2 • Configure</div>
+                    <div class="px-3 py-1 rounded btn step opacity-60" data-s="3">3 • Review</div>
+                    <div class="px-3 py-1 rounded btn step opacity-60" data-s="4">4 • Deploy</div>
+                </div>
+                <div class="my-4 border-t border-white/10"></div>
+                <div id="step1" class="grid md:grid-cols-3 gap-4">
+                    <label class="grid"><span class="mb-1 text-sm">Model Family</span>
+                        <select id="wModel" class="btn rounded px-3 py-2 bg-transparent">
+                            <option>LLaMA 3.1 8B</option>
+                            <option>Mistral 7B</option>
+                            <option>Mixtral 8x7B</option>
+                            <option>Gemma 2</option>
+                        </select></label>
+                    <label class="grid"><span class="mb-1 text-sm">Runtime</span>
+                        <select id="wRuntime" class="btn rounded px-3 py-2 bg-transparent">
+                            <option>vLLM</option>
+                            <option>Text Generation Inference</option>
+                            <option>Triton</option>
+                            <option>Ray Serve</option>
+                        </select></label>
+                    <label class="grid"><span class="mb-1 text-sm">Endpoint Name</span><input id="wEndpoint"
+                            placeholder="/api/llama-31" class="btn rounded px-3 py-2 bg-transparent" /></label>
+                </div>
+                <div id="step2" class="grid md:grid-cols-3 gap-4 hidden">
+                    <label class="grid"><span class="mb-1 text-sm">GPUs</span><input id="wGPU" type="number" min="0"
+                            value="1" class="btn rounded px-3 py-2 bg-transparent" /></label>
+                    <label class="grid"><span class="mb-1 text-sm">Replicas</span><input id="wReplicas" type="number"
+                            min="1" value="1" class="btn rounded px-3 py-2 bg-transparent" /></label>
+                    <label class="flex items-center gap-2"><input id="wAuto" type="checkbox"
+                            class="accent-blue-500"><span class="text-sm">Enable autoscaling</span></label>
+                </div>
+                <div id="step3" class="grid gap-3 hidden">
+                    <div class="text-sm text-white/80">Review your configuration:</div>
+                    —
+                </div>
+                <div id="step4" class="grid md:grid-cols-2 gap-4 hidden">
+                    <div class="glass p-3 ringed">
+                        <div class="font-semibold mb-2">Docker Command</div>—
+                    </div>
+                    <div class="glass p-3 ringed">
+                        <div class="font-semibold mb-2">Helm (Kubernetes)</div>—
+                    </div>
+                    <div class="md:col-span-2">
+                        <div class="font-semibold mb-1">Deploy Logs</div>
+                        <div id="deployLogs" class="bg-black/40 rounded p-3 text-[12px] h-40 overflow-auto"></div>
+                    </div>
+                </div>
+                <div class="my-4 border-t border-white/10"></div>
+                <div class="flex items-center justify-between">
+                    <button id="backBtn" class="btn px-3 py-2 text-sm" disabled>Back</button>
+                    <div class="flex gap-2">
+                        <button id="nextBtn" class="btn grad px-4 py-2 text-sm font-semibold shadow-lg">Next</button>
+                        <a href="#/models" id="doneBtn" class="btn px-4 py-2 text-sm hidden">Finish</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Monitoring -->
+        <section id="page-monitor" class="space-y-4 hidden">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-extrabold">Monitoring</h2>
+                <div class="flex items-center gap-2">
+                    <button id="playBtn" class="btn grad px-3 py-2 text-sm shadow-lg">▶ Play</button>
+                    <button id="pauseBtn" class="btn px-3 py-2 text-sm">⏸ Pause</button>
+                </div>
+            </div>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="glass ringed p-4">
+                    <div class="text-sm text-white/70">GPU Utilization</div><canvas id="mGpu"></canvas>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="text-sm text-white/70">Latency (p95)</div><canvas id="mLat"></canvas>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="text-sm text-white/70">Throughput</div><canvas id="mThr"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- FinOps -->
+        <section id="page-finops" class="space-y-4 hidden">
+            <h2 class="text-xl font-extrabold">FinOps & Cost</h2>
+            <div class="grid lg:grid-cols-3 gap-4">
+                <div class="glass ringed p-4 lg:col-span-2">
+                    <div class="flex items-center justify-between flex-wrap gap-3">
+                        <div class="font-semibold">Monthly GPU Cost</div>
+                        <div class="flex gap-2 text-xs">
+                            <label class="flex items-center gap-1"><input type="checkbox" id="sIdle" checked
+                                    class="accent-blue-500">Idle Shutdown</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" id="sRoute" checked
+                                    class="accent-blue-500">Intelligent Routing</label>
+                            <label class="flex items-center gap-1"><input type="checkbox" id="sAuto" checked
+                                    class="accent-blue-500">Autoscaling</label>
+                        </div>
+                    </div>
+                    <canvas id="fCost"></canvas>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="font-semibold">Spend by Team</div>
+                    <canvas id="fTeam"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Security -->
+        <section id="page-security" class="space-y-4 hidden">
+            <h2 class="text-xl font-extrabold">Security & Privacy</h2>
+            <div class="grid lg:grid-cols-2 gap-4">
+                <div class="glass ringed p-4">
+                    <div class="font-semibold mb-2">Access Controls</div>
+                    <label class="block text-sm mb-2">SSO Provider
+                        <select class="btn rounded px-3 py-2 bg-transparent mt-1">
+                            <option>Okta</option>
+                            <option>Azure AD</option>
+                            <option>Google Workspace</option>
+                        </select>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm"><input type="checkbox" checked
+                            class="accent-blue-500"> RBAC</label>
+                    <label class="flex items-center gap-2 text-sm mt-1"><input type="checkbox" checked
+                            class="accent-blue-500"> Audit Logs</label>
+                </div>
+                <div class="glass ringed p-4">
+                    <div class="font-semibold mb-2">Data & Deployment</div>
+                    <ul class="list-disc ml-5 text-sm text-white/80 space-y-1">
+                        <li>Runs entirely in your VPC/on‑prem; no data egress.</li>
+                        <li>Air‑gapped & offline installer available.</li>
+                        <li>SOC 2 readiness: mapped controls & evidence checklist.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Drawer -->
+    <div id="drawer" class="fixed left-0 right-0 bottom-0 z-50 glass drawer closed rounded-t-2xl">
+        <div class="max-w-5xl mx-auto p-4">
+            <div class="flex items-center justify-between">
+                <div class="font-semibold" id="drawerTitle">Model Details</div>
+                <button class="btn px-2 py-1 text-sm" onclick="closeDrawer()">Close</button>
+            </div>
+            <div class="grid md:grid-cols-3 gap-4 mt-3">
+                <div class="md:col-span-2">
+                    <div class="text-sm text-white/70">Metrics</div>
+                    <canvas id="dChart"></canvas>
+                </div>
+                <div>
+                    <div class="text-sm text-white/70">Actions</div>
+                    <div class="flex gap-2 mt-2">
+                        <button class="btn px-3 py-2 text-sm" onclick="drawerScale(1)">+1 Replica</button>
+                        <button class="btn px-3 py-2 text-sm" onclick="drawerScale(-1)">-1 Replica</button>
+                    </div>
+                    <div class="mt-3 text-sm">
+                        <span class="btn px-2 py-1 rounded">vLLM</span>
+                        <span class="btn px-2 py-1 rounded">GPU: <span id="drawerGPU">1</span></span>
+                        <span class="btn px-2 py-1 rounded">Replicas: <span id="drawerRep">1</span></span>
+                    </div>
+                    <div class="mt-4 text-sm">
+                        <div class="font-semibold mb-1">Logs</div>
+                        <div id="drawerLogs" class="bg-black/40 rounded p-2 h-40 overflow-auto text-[12px]"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Command Palette -->
+    <div id="palette" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/60"></div>
+        <div class="relative max-w-xl mx-auto mt-28 glass rounded-xl p-3">
+            <input id="palInput" placeholder="Type to jump (dashboard, models, deploy, monitor, finops, security)…"
+                class="w-full btn rounded px-3 py-2 bg-transparent text-sm" />
+            <div id="palList" class="mt-2 text-sm"></div>
+        </div>
+    </div>
+
+    <script>
+        // ==== Tiny Chart Utils (no dependencies) =====
+        const Colors = [ '#5b8cff', '#7b5bff', '#34d2ff', '#9ad0ff', '#8c5bff', '#ff8a8a', '#3ddc97' ];
+        function $c( id ) { const el = document.getElementById( id ); const ctx = el.getContext( '2d' ); const dpr = window.devicePixelRatio || 1; const w = el.clientWidth, h = el.clientHeight || 160; el.width = w * dpr; el.height = h * dpr; ctx.scale( dpr, dpr ); ctx.clearRect( 0, 0, w, h ); return { el, ctx, w, h }; }
+        function drawAxes( ctx, w, h, margin = 28 ) { ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo( margin, margin ); ctx.lineTo( margin, h - margin ); ctx.lineTo( w - margin, h - margin ); ctx.stroke(); }
+        function normalize( data, max ) { return data.map( v => v / max ); }
+        function maxOf( arrs ) { return Math.max( ...arrs.flat() ); }
+
+        function barChart( id, labels, series, stacked = false ) {
+            const { ctx, w, h } = $c( id ); const m = 28; const sCount = series.length; const n = labels.length;
+            drawAxes( ctx, w, h, m ); const max = stacked ? Math.max( ...labels.map( ( _, i ) => series.reduce( ( a, s ) => a + ( s.data[ i ] || 0 ), 0 ) ) ) : maxOf( series.map( s => s.data ) );
+            const bw = ( w - 2 * m ) / n * 0.7; const gap = ( w - 2 * m ) / n * 0.3;
+            labels.forEach( ( lab, i ) => {
+                let x = m + i * ( bw + gap ) + gap / 2;
+                let baseY = h - m;
+                series.forEach( ( s, si ) => {
+                    const val = s.data[ i ] || 0; const ratio = ( max ? val / max : 0 ); const bh = ratio * ( h - 2 * m );
+                    ctx.fillStyle = s.color || Colors[ si % Colors.length ];
+                    const barW = stacked ? bw : ( bw / sCount - 4 );
+                    const bx = stacked ? x : ( x + si * ( barW + 4 ) );
+                    const by = baseY - bh;
+                    ctx.fillRect( bx, by, barW, bh );
+                    if ( stacked ) { baseY = by; }
+                } );
+                ctx.fillStyle = 'rgba(255,255,255,.65)'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText( lab, x + ( stacked ? bw / 2 : bw / 2 ), h - 8 );
+            } );
+        }
+
+        function lineChart( id, labels, series ) {
+            const { ctx, w, h } = $c( id ); const m = 28; drawAxes( ctx, w, h, m );
+            const max = maxOf( series.map( s => s.data ) ); const xw = ( w - 2 * m ) / ( labels.length - 1 || 1 );
+            series.forEach( ( s, si ) => {
+                ctx.strokeStyle = s.color || Colors[ si % Colors.length ]; ctx.lineWidth = 2; ctx.beginPath();
+                s.data.forEach( ( v, i ) => {
+                    const x = m + i * xw; const y = h - m - ( max ? ( v / max ) * ( h - 2 * m ) : 0 );
+                    if ( i === 0 ) ctx.moveTo( x, y ); else ctx.lineTo( x, y );
+                } ); ctx.stroke();
+            } );
+        }
+
+        function doughnutChart( id, labels, values ) {
+            const { ctx, w, h } = $c( id ); const cx = w / 2, cy = h / 2, r = Math.min( w, h ) / 2 - 16; const total = values.reduce( ( a, b ) => a + b, 0 ) || 1;
+            let start = -Math.PI / 2;
+            values.forEach( ( v, i ) => {
+                const ang = ( v / total ) * Math.PI * 2; ctx.beginPath(); ctx.fillStyle = Colors[ i % Colors.length ];
+                ctx.moveTo( cx, cy ); ctx.arc( cx, cy, r, start, start + ang ); ctx.closePath(); ctx.fill(); start += ang;
+            } );
+            ctx.globalCompositeOperation = 'destination-out'; ctx.beginPath(); ctx.arc( cx, cy, r * 0.55, 0, Math.PI * 2 ); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function areaChart( id, labels, series ) {
+            const { ctx, w, h } = $c( id ); const m = 28; drawAxes( ctx, w, h, m );
+            const max = maxOf( series.map( s => s.data ) ); const xw = ( w - 2 * m ) / ( labels.length - 1 || 1 );
+            series.forEach( ( s, si ) => {
+                ctx.fillStyle = ( s.color || Colors[ si % Colors.length ] ) + '55'; ctx.strokeStyle = s.color || Colors[ si % Colors.length ]; ctx.lineWidth = 2;
+                ctx.beginPath();
+                s.data.forEach( ( v, i ) => {
+                    const x = m + i * xw; const y = h - m - ( max ? ( v / max ) * ( h - 2 * m ) : 0 );
+                    if ( i === 0 ) ctx.moveTo( x, y ); else ctx.lineTo( x, y );
+                } );
+                ctx.lineTo( m + ( labels.length - 1 ) * xw, h - m ); ctx.lineTo( m, h - m ); ctx.closePath(); ctx.fill();
+                ctx.beginPath();
+                s.data.forEach( ( v, i ) => { const x = m + i * xw; const y = h - m - ( max ? ( v / max ) * ( h - 2 * m ) : 0 ); if ( i === 0 ) ctx.moveTo( x, y ); else ctx.lineTo( x, y ); } );
+                ctx.stroke();
+            } );
+        }
+
+        // ==== App State & Router ====
+        const Store = { models: JSON.parse( localStorage.getItem( 'llms' ) || '[]' ), sortKey: 'name', sortDir: 1, staged: null, playing: true };
+        function save() { localStorage.setItem( 'llms', JSON.stringify( Store.models ) ); }
+        const pages = [ 'dashboard', 'models', 'deploy', 'monitor', 'finops', 'security' ];
+        function route() {
+            const hash = location.hash.replace( '#/', '' ) || 'dashboard';
+            pages.forEach( p => document.getElementById( 'page-' + p ).classList.toggle( 'hidden', p !== hash ) );
+            document.querySelectorAll( '[data-route]' ).forEach( a => a.classList.toggle( 'grad', a.getAttribute( 'data-route' ) === hash ) );
+            if ( hash === 'dashboard' ) { renderDashboard(); renderDashboardCharts(); }
+            if ( hash === 'models' ) { renderModelTable(); }
+            if ( hash === 'monitor' ) { renderMonitorCharts(); }
+            if ( hash === 'finops' ) { renderFinopsCharts(); }
+            if ( hash === 'deploy' ) { wizard( 1 ); }
+        }
+        window.addEventListener( 'hashchange', route );
+        window.addEventListener( 'resize', () => { // Redraw on resize for crispness
+            const hash = location.hash.replace( '#/', '' ) || 'dashboard';
+            if ( hash === 'dashboard' ) renderDashboardCharts();
+            if ( hash === 'monitor' ) renderMonitorCharts();
+            if ( hash === 'finops' ) renderFinopsCharts();
+        } );
+        route();
+
+        // ==== Tables & Controls ====
+        function renderDashboard() {
+            const tbody = document.getElementById( 'tableModels' );
+            const empty = document.getElementById( 'tableEmpty' );
+            tbody.innerHTML = '';
+            if ( Store.models.length === 0 ) { empty.classList.remove( 'hidden' ); return; } else empty.classList.add( 'hidden' );
+            const data = [ ...Store.models ].sort( ( a, b ) => ( a[ Store.sortKey ] > b[ Store.sortKey ] ? 1 : -1 ) * Store.sortDir );
+            data.forEach( ( m, i ) => {
+                const tr = document.createElement( 'tr' ); tr.className = 'hover-row';
+                tr.innerHTML = `<td class="p-2">${ m.name }</td><td class="p-2">${ m.runtime }</td><td class="p-2">${ m.gpus }</td><td class="p-2">${ m.replicas }</td><td class="p-2">${ m.status }</td><td class="p-2"><button class="btn px-2 py-1 text-xs" onclick="openDrawer(${ i })">View</button></td>`;
+                tbody.appendChild( tr );
+            } );
+            document.getElementById( 'gpuNow' ).textContent = 60 + Math.floor( Math.random() * 20 );
+            document.getElementById( 'latNow' ).textContent = 350 + Math.floor( Math.random() * 200 );
+            document.getElementById( 'costNow' ).textContent = ( 18000 + Math.floor( Math.random() * 2000 ) ).toLocaleString();
+        }
+        function sortModels( key ) { if ( Store.sortKey === key ) { Store.sortDir *= -1; } else { Store.sortKey = key; Store.sortDir = 1; } renderDashboard(); }
+
+        function renderModelTable() {
+            const body = document.getElementById( 'modelsBody' );
+            const empty = document.getElementById( 'modelsEmpty' );
+            const q = ( document.getElementById( 'filterInput' ).value || '' ).toLowerCase();
+            const data = Store.models.filter( m => !q || m.name.toLowerCase().includes( q ) || m.runtime.toLowerCase().includes( q ) );
+            body.innerHTML = '';
+            if ( data.length === 0 ) { empty.classList.remove( 'hidden' ); } else empty.classList.add( 'hidden' );
+            data.forEach( ( m, i ) => {
+                const tr = document.createElement( 'tr' ); tr.className = 'hover-row';
+                tr.innerHTML = `<td class="p-2">${ m.name }</td><td class="p-2">${ m.runtime }</td><td class="p-2">${ m.gpus }</td><td class="p-2">${ m.replicas }</td><td class="p-2">${ m.status }</td>
+      <td class="p-2 flex gap-2">
+        <button class="btn px-2 py-1 text-xs" onclick="openDrawer(${ i })">View</button>
+        <button class="btn px-2 py-1 text-xs" onclick="replica(${ i },1)">+1</button>
+        <button class="btn px-2 py-1 text-xs" onclick="replica(${ i },-1)">-1</button>
+        <button class="btn px-2 py-1 text-xs" onclick="toggle(${ i })">${ m.status === 'Running' ? 'Stop' : 'Start' }</button>
+        <button class="btn px-2 py-1 text-xs" onclick="del(${ i })">Delete</button>
+      </td>`;
+                body.appendChild( tr );
+            } );
+        }
+        function seed() { Store.models = [ { name: 'LLaMA 3.1 8B', runtime: 'vLLM', gpus: 1, replicas: 2, status: 'Running' }, { name: 'Mistral 7B', runtime: 'TGI', gpus: 1, replicas: 1, status: 'Stopped' }, { name: 'Mixtral 8x7B', runtime: 'Ray Serve', gpus: 4, replicas: 2, status: 'Running' } ]; save(); renderDashboard(); renderModelTable(); }
+        function wipe() { Store.models = []; save(); renderDashboard(); renderModelTable(); }
+        function replica( i, d ) { Store.models[ i ].replicas = Math.max( 0, Store.models[ i ].replicas + d ); save(); renderDashboard(); renderModelTable(); }
+        function toggle( i ) { Store.models[ i ].status = Store.models[ i ].status === 'Running' ? 'Stopped' : 'Running'; save(); renderDashboard(); renderModelTable(); }
+        function del( i ) { Store.models.splice( i, 1 ); save(); renderDashboard(); renderModelTable(); }
+
+        // ==== Drawer ====
+        let dTimer = null; let dData = Array.from( { length: 20 }, () => 40 + Math.random() * 40 );
+        function openDrawer( i ) {
+            const m = Store.models[ i ];
+            document.getElementById( 'drawerTitle' ).textContent = m.name;
+            document.getElementById( 'drawerGPU' ).textContent = m.gpus;
+            document.getElementById( 'drawerRep' ).textContent = m.replicas;
+            const logs = document.getElementById( 'drawerLogs' ); logs.textContent = '';
+            [ 'Initializing runtime…', 'Downloading weights…', 'Warmup complete.', 'Serving on ' + ( m.endpoint || '/api/' + m.name.toLowerCase().replace( /\s+/g, '-' ) ) ]
+                .forEach( ( l, idx ) => setTimeout( () => { logs.textContent += l + '\n'; logs.scrollTop = logs.scrollHeight; }, 300 * idx ) );
+            renderDrawerChart();
+            document.getElementById( 'drawer' ).classList.remove( 'closed' );
+            document.getElementById( 'drawer' ).scrollIntoView( { behavior: 'smooth', block: 'end' } );
+            if ( dTimer ) clearInterval( dTimer );
+            dTimer = setInterval( () => { dData.push( 40 + Math.random() * 40 ); if ( dData.length > 30 ) dData.shift(); renderDrawerChart(); }, 1200 );
+        }
+        function renderDrawerChart() {
+            const labels = Array.from( { length: dData.length }, ( _, i ) => i );
+            lineChart( 'dChart', labels, [ { data: dData, color: '#34d2ff' } ] );
+        }
+        function closeDrawer() { document.getElementById( 'drawer' ).classList.add( 'closed' ); if ( dTimer ) clearInterval( dTimer ); }
+        function drawerScale( delta ) {
+            const name = document.getElementById( 'drawerTitle' ).textContent;
+            const idx = Store.models.findIndex( m => m.name === name );
+            if ( idx >= 0 ) { replica( idx, delta ); document.getElementById( 'drawerRep' ).textContent = Store.models[ idx ].replicas; }
+        }
+
+        // ==== Dashboard Charts ====
+        function renderDashboardCharts() {
+            barChart( 'dbNodes', [ 'node‑a', 'node‑b', 'node‑c', 'node‑d', 'node‑e' ], [ { data: [ 82, 56, 71, 63, 48 ] } ] );
+            // Latency grouped bars (p50/p95/p99 across models)
+            const labs = [ 'LLaMA', 'Mistral', 'Mixtral', 'Gemma' ];
+            barChart( 'dbLatency', labs, [
+                { data: [ 180, 140, 210, 160 ], color: '#34d2ff' },
+                { data: [ 520, 460, 610, 500 ], color: '#7b5bff' },
+                { data: [ 900, 820, 980, 860 ], color: '#ff8a8a' }
+            ] );
+            doughnutChart( 'dbEndpoints', [ '/llama', '/mistral', '/mixtral', '/gemma' ], [ 42, 26, 22, 10 ] );
+            // Stacked cost
+            const months = [ 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug' ]; const fixed = [ 6000, 6100, 6050, 6100, 6150, 6200 ]; const variable = [ 22000, 24000, 24450, 23400, 24850, 23800 ];
+            barChart( 'dbCostStacked', months, [ { data: fixed, color: '#7b5bff' }, { data: variable, color: '#34d2ff' } ], true );
+            // Savings (displayed as area chart for clarity)
+            areaChart( 'dbSavings', [ 'Idle', 'Route', 'Auto', 'Batch', 'Quant' ], [ { data: [ 28, 22, 26, 14, 10 ], color: '#5b8cff' } ] );
+        }
+
+        // ==== Monitoring Charts ====
+        let monTimer = null; let mg = [ ...Array( 20 ) ].map( () => 40 + Math.random() * 40 ), ml = [ ...Array( 20 ) ].map( () => 150 + Math.random() * 150 ), mt = [ ...Array( 20 ) ].map( () => 20 + Math.random() * 20 );
+        function renderMonitorCharts() {
+            const labels = Array.from( { length: mg.length }, ( _, i ) => i );
+            lineChart( 'mGpu', labels, [ { data: mg, color: '#5b8cff' } ] );
+            lineChart( 'mLat', labels, [ { data: ml, color: '#7b5bff' } ] );
+            lineChart( 'mThr', labels, [ { data: mt, color: '#34d2ff' } ] );
+            if ( monTimer ) clearInterval( monTimer );
+            monTimer = setInterval( () => {
+                mg.push( 40 + Math.random() * 40 ); if ( mg.length > 30 ) mg.shift();
+                ml.push( 150 + Math.random() * 150 ); if ( ml.length > 30 ) ml.shift();
+                mt.push( 20 + Math.random() * 20 ); if ( mt.length > 30 ) mt.shift();
+                const h = location.hash.replace( '#/', '' ) || 'dashboard';
+                if ( h === 'monitor' ) { renderMonitorCharts(); } else { clearInterval( monTimer ); }
+            }, 1200 );
+            document.getElementById( 'playBtn' ).onclick = () => { if ( !monTimer ) { renderMonitorCharts(); } };
+            document.getElementById( 'pauseBtn' ).onclick = () => { if ( monTimer ) { clearInterval( monTimer ); monTimer = null; } };
+        }
+
+        // ==== FinOps Charts & Toggles ====
+        function renderFinopsCharts() {
+            const months = [ 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug' ];
+            const base = [ 28000, 30000, 30500, 29500, 31000, 30000 ];
+            const idle = document.getElementById( 'sIdle' ).checked ? 0.78 : 1.0;
+            const route = document.getElementById( 'sRoute' ).checked ? 0.85 : 1.0;
+            const auto = document.getElementById( 'sAuto' ).checked ? 0.75 : 1.0;
+            const mul = idle * route * auto;
+            const after = base.map( v => Math.round( v * mul ) );
+            lineChart( 'fCost', months, [ { data: base, color: '#ff8a8a' }, { data: after, color: '#34d2ff' } ] );
+            // Spend by team (bar)
+            barChart( 'fTeam', [ 'Data', 'Product', 'Research', 'Ops' ], [ { data: [ 8200, 5200, 4600, 2600 ] } ] );
+            [ 'sIdle', 'sRoute', 'sAuto' ].forEach( id => document.getElementById( id ).onchange = renderFinopsCharts );
+        }
+
+        // ==== Deploy Wizard ====
+        let step = 1;
+        function wizard( s ) {
+            step = s;
+            [ 'step1', 'step2', 'step3', 'step4' ].forEach( ( id, idx ) => {
+                document.getElementById( id ).classList.toggle( 'hidden', idx !== s - 1 );
+                document.querySelector( `[data-s="${ idx + 1 }"]` ).classList.toggle( 'opacity-60', idx !== s - 1 );
+            } );
+            document.getElementById( 'backBtn' ).disabled = s === 1;
+            document.getElementById( 'nextBtn' ).classList.toggle( 'hidden', s === 4 );
+            document.getElementById( 'doneBtn' ).classList.toggle( 'hidden', s !== 4 );
+        }
+        document.getElementById( 'backBtn' ).addEventListener( 'click', () => wizard( step - 1 ) );
+        document.getElementById( 'nextBtn' ).addEventListener( 'click', () => {
+            if ( step === 1 ) {
+                const ep = document.getElementById( 'wEndpoint' ).value || '/api/' + document.getElementById( 'wModel' ).value.toLowerCase().replace( /\s+/g, '-' );
+                document.getElementById( 'wEndpoint' ).value = ep; wizard( 2 );
+            } else if ( step === 2 ) {
+                const cfg = { model: wModel.value, runtime: wRuntime.value, endpoint: wEndpoint.value, gpus: +wGPU.value || 0, replicas: +wReplicas.value || 1, autoscale: wAuto.checked };
+                Store.staged = cfg;
+                reviewCfg.textContent = JSON.stringify( cfg, null, 2 );
+                cmdDocker.textContent = `docker run -d --name ${ cfg.endpoint.replace( '/api/', '' ).replace( /[^a-z0-9-]/gi, '' ) } -p 8080:8080 \n  -e MODEL="${ cfg.model }" -e RUNTIME="${ cfg.runtime }" \n  -e GPUS=${ cfg.gpus } -e REPLICAS=${ cfg.replicas } -e AUTOSCALE=${ cfg.autoscale } \n  ghcr.io/llmstack/llmstack:latest`;
+                cmdHelm.textContent = `helm install ${ cfg.endpoint.replace( '/', '-' ) } llmstack/llmstack \n  --set model.family="${ cfg.model }" \n  --set runtime="${ cfg.runtime }" \n  --set resources.gpu=${ cfg.gpus } \n  --set replicaCount=${ cfg.replicas } \n  --set autoscaling.enabled=${ cfg.autoscale } \n  --set endpoint.path="${ cfg.endpoint }"`;
+                wizard( 3 );
+            } else if ( step === 3 ) {
+                wizard( 4 );
+                const box = document.getElementById( 'deployLogs' ); box.textContent = '';
+                const lines = [ 'Validating configuration…', 'Provisioning containers…', 'Pulling runtime image…', 'Downloading model weights…', 'Initializing tensor cache…', 'Health checks passing.', 'Deployment successful.' ];
+                lines.forEach( ( l, i ) => setTimeout( () => { box.textContent += l + '\n'; box.scrollTop = box.scrollHeight; }, 400 * i ) );
+                setTimeout( () => {
+                    const m = Store.staged; Store.models.push( { name: m.model, runtime: m.runtime, gpus: m.gpus, replicas: m.replicas, status: 'Running', endpoint: m.endpoint } ); save();
+                }, 2800 );
+            }
+        } );
+
+        // Alerts
+        function pushAlert() {
+            const list = document.getElementById( 'alertsList' );
+            const li = document.createElement( 'li' ); li.className = 'px-3 py-2 rounded'; li.style.cssText = 'background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18)';
+            const msgs = [ 'Idle GPU detected on node g5.2xlarge — shutdown scheduled.', 'Latency spike on /api/llama — autoscaling to 3 replicas.', 'Budget overrun forecast for Team Data — alerting FinOps.' ];
+            li.textContent = msgs[ Math.floor( Math.random() * msgs.length ) ]; list.prepend( li );
+        }
+
+        // Seed on first load for a better demo
+        if ( Store.models.length === 0 ) { seed(); }
+    </script>
+</body>
+
+</html>
