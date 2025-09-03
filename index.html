@@ -820,29 +820,30 @@ llmstack login --host http://localhost:8080</code></pre>
         <h2 style="margin:0 0 6px; font-size:1.75rem; font-weight:800;">Get in Touch</h2>
         <p class="muted" style="margin:0 0 16px;">Tell us a bit about your use case and we’ll get back within one
           business day.</p>
-        <form action="#" method="post" class="form" style="display:grid; gap:12px;">
+        <form id="contactForm" class="form" style="display:grid; gap:12px;">
           <label style="display:grid; gap:6px;">
             <span class="muted">Name</span>
-            <input type="text" name="name" required
+            <input type="text" name="name" id="name" required
               style="background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:#fff; padding:12px 14px; border-radius:12px; outline:none;">
           </label>
           <label style="display:grid; gap:6px;">
             <span class="muted">Role</span>
-            <input type="text" name="role" required
+            <input type="text" name="role" id="role" required
               style="background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:#fff; padding:12px 14px; border-radius:12px; outline:none;">
           </label>
           <label style="display:grid; gap:6px;">
             <span class="muted">Company Email</span>
-            <input type="email" name="email" required
+            <input type="email" name="email" id="email" required
               style="background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:#fff; padding:12px 14px; border-radius:12px; outline:none;">
           </label>
           <label style="display:grid; gap:6px;">
             <span class="muted">Describe Your Inquiry</span>
-            <textarea name="inquiry" rows="5" required
+            <textarea name="inquiry" id="inquiry" rows="5" required
               style="background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:#fff; padding:12px 14px; border-radius:12px; outline:none;"></textarea>
           </label>
+          <div id="formMessage" style="display:none; padding:12px; border-radius:8px; margin:8px 0;"></div>
           <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:8px;">
-            <button type="submit" class="btn grad lg">Submit</button>
+            <button type="submit" id="submitBtn" class="btn grad lg">Submit</button>
           </div>
         </form>
       </div>
@@ -933,6 +934,63 @@ llmstack login --host http://localhost:8080</code></pre>
         menuBtn.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
       } );
     }
+
+    // Contact form submission
+    const contactForm = document.getElementById( 'contactForm' );
+    const submitBtn = document.getElementById( 'submitBtn' );
+    const formMessage = document.getElementById( 'formMessage' );
+
+    contactForm.addEventListener( 'submit', async ( e ) => {
+      e.preventDefault();
+
+      const formData = {
+        name: document.getElementById( 'name' ).value,
+        role: document.getElementById( 'role' ).value,
+        email: document.getElementById( 'email' ).value,
+        inquiry: document.getElementById( 'inquiry' ).value
+      };
+
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+      formMessage.style.display = 'none';
+
+      try {
+        const response = await fetch( '/api/send-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify( formData )
+        } );
+
+        const result = await response.json();
+
+        if ( result.success ) {
+          formMessage.style.display = 'block';
+          formMessage.style.background = 'rgba(52, 210, 255, 0.1)';
+          formMessage.style.border = '1px solid rgba(52, 210, 255, 0.3)';
+          formMessage.style.color = '#34d2ff';
+          formMessage.textContent = 'Thank you! Your message has been sent successfully. We\'ll get back to you within one business day.';
+
+          // Reset form
+          contactForm.reset();
+        } else {
+          throw new Error( result.error || 'Failed to send message' );
+        }
+      } catch ( error ) {
+        console.error( 'Error:', error );
+        formMessage.style.display = 'block';
+        formMessage.style.background = 'rgba(255, 138, 138, 0.1)';
+        formMessage.style.border = '1px solid rgba(255, 138, 138, 0.3)';
+        formMessage.style.color = '#ff8a8a';
+        formMessage.textContent = 'Sorry, there was an error sending your message. Please try again or contact us directly.';
+      } finally {
+        // Reset button state
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit';
+      }
+    } );
   </script>
 </body>
 
