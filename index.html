@@ -956,7 +956,7 @@ llmstack login --host http://localhost:8080</code></pre>
       formMessage.style.display = 'none';
 
       try {
-        const response = await fetch( '/api/send-email', {
+        const response = await fetch( '/.netlify/functions/send', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
